@@ -22,7 +22,8 @@ function validSession(request: NextRequest) {
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  if (pathname.startsWith('/auth')) {
+  if (pathname.startsWith('/auth') || pathname.startsWith('/api/auth')) {
+    if (pathname.startsWith('/api/auth')) return NextResponse.next()
     if (validSession(request)) {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
