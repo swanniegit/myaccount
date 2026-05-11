@@ -1,36 +1,41 @@
-import { timingSafeEqual, createHmac } from 'crypto'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-function expectedToken() {
-  return createHmac('sha256', process.env.SITE_PASSWORD!)
-    .update('authenticated')
-    .digest('hex')
+async function hmacHex(key: string, message: string): Promise<string> {
+  const enc = new TextEncoder()
+  const cryptoKey = await globalThis.crypto.subtle.importKey(
+    'raw', enc.encode(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+  )
+  const sig = await globalThis.crypto.subtle.sign('HMAC', cryptoKey, enc.encode(message))
+  return Array.from(new Uint8Array(sig))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')
 }
 
-function validSession(request: NextRequest) {
+async function validSession(request: NextRequest): Promise<boolean> {
   const token = request.cookies.get('session')?.value
   if (!token) return false
-  const expected = expectedToken()
-  try {
-    return timingSafeEqual(Buffer.from(token), Buffer.from(expected))
-  } catch {
-    return false
+  const expected = await hmacHex(process.env.SITE_PASSWORD!, 'authenticated')
+  if (token.length !== expected.length) return false
+  let diff = 0
+  for (let i = 0; i < token.length; i++) {
+    diff |= token.charCodeAt(i) ^ expected.charCodeAt(i)
   }
+  return diff === 0
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   if (pathname.startsWith('/auth') || pathname.startsWith('/api/auth')) {
     if (pathname.startsWith('/api/auth')) return NextResponse.next()
-    if (validSession(request)) {
+    if (await validSession(request)) {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
     return NextResponse.next()
   }
 
-  if (!validSession(request)) {
+  if (!await validSession(request)) {
     return NextResponse.redirect(new URL('/auth/login', request.url))
   }
 
