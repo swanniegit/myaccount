@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
 import type { PushVoidRequest } from '@/lib/livehis-push/types'
+import { requireApiKey } from '@/lib/livehis-push/auth'
 
 export async function POST(req: NextRequest) {
+  const authError = requireApiKey(req)
+  if (authError) return authError
+
   let body: PushVoidRequest
   try {
     body = await req.json()

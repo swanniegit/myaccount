@@ -4,8 +4,12 @@ import { upsertContact } from '@/lib/livehis-push/upsert-contact'
 import { createInvoiceJournal } from '@/lib/livehis-push/create-invoice-journal'
 import type { PushInvoiceRequest } from '@/lib/livehis-push/types'
 import { getAccountId } from '@/lib/livehis-push/account-lookup'
+import { requireApiKey } from '@/lib/livehis-push/auth'
 
 export async function POST(req: NextRequest) {
+  const authError = requireApiKey(req)
+  if (authError) return authError
+
   let body: PushInvoiceRequest
   try {
     body = await req.json()
@@ -34,15 +38,17 @@ export async function POST(req: NextRequest) {
   try {
     const contactId = await upsertContact(supabase, contact)
 
-    const journalEntryId = await createInvoiceJournal({
-      supabase,
-      invoiceNumber: invoice.number,
-      date: invoice.date,
-      invoiceType: invoice.invoice_type,
-      subtotal: invoice.subtotal,
-      vatAmount: invoice.vat_amount,
-      total: invoice.total,
-    })
+    const journalEntryId = invoice.total > 0
+      ? await createInvoiceJournal({
+          supabase,
+          invoiceNumber: invoice.number,
+          date: invoice.date,
+          invoiceType: invoice.invoice_type,
+          subtotal: invoice.subtotal,
+          vatAmount: invoice.vat_amount,
+          total: invoice.total,
+        })
+      : null
 
     const { data: newInvoice, error: invErr } = await supabase
       .from('acct_invoices')

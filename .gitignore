@@ -27,3 +27,5 @@ next-env.d.ts
 .DS_Store
 *.zip
 myAccount_extracted/
+
+.vercel
