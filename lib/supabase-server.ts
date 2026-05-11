@@ -1,0 +1,15 @@
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+
+/**
+ * Server-side Supabase client using the service role key.
+ * Use only in API route handlers and server actions — never in client components.
+ * This bypasses Row Level Security, so validate inputs before use.
+ */
+export function createServerClient() {
+  return createClient(supabaseUrl, supabaseServiceKey, {
+    auth: { persistSession: false },
+  })
+}

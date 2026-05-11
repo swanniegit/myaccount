@@ -1,0 +1,43 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --paper: #F6F0E4;
+  --paper-edge: #EAE3D2;
+  --ink: #1A1A1A;
+  --ink-2: #5A554A;
+  --muted: #B8B0A0;
+  --accent: #D97757;
+  --accent-soft: rgba(217,119,87,0.12);
+  --positive: #1F8A5B;
+  --negative: #C0392B;
+  --surface: #FFFFFF;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background-color: var(--paper);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.num {
+  font-family: 'JetBrains Mono', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+input, select, textarea {
+  font-size: 13px;
+  font-family: inherit;
+}
+
+table { border-collapse: collapse; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--paper-edge); border-radius: 3px; }

@@ -1,0 +1,221 @@
+{
+  "accounts": [
+    {
+      "name": "Cash",
+      "type": "asset",
+      "entries": [
+        {
+          "date": "2026-02-09T05:53:48.213Z",
+          "description": "Owner initial investment",
+          "debit": 10000,
+          "credit": 0
+        },
+        {
+          "date": "2026-02-09T05:53:48.213Z",
+          "description": "Purchase equipment",
+          "debit": 0,
+          "credit": 3000
+        },
+        {
+          "date": "2026-02-09T05:53:48.213Z",
+          "description": "Pay monthly rent",
+          "debit": 0,
+          "credit": 800
+        },
+        {
+          "date": "2026-02-09T05:53:48.213Z",
+          "description": "Collect from customer",
+          "debit": 1500,
+          "credit": 0
+        },
+        {
+          "date": "2026-02-09T05:53:48.213Z",
+          "description": "Pay utilities",
+          "debit": 0,
+          "credit": 150
+        }
+      ]
+    },
+    {
+      "name": "Accounts Receivable",
+      "type": "asset",
+      "entries": [
+        {
+          "date": "2026-02-09T05:53:48.213Z",
+          "description": "Services provided on account",
+          "debit": 2500,
+          "credit": 0
+        },
+        {
+          "date": "2026-02-09T05:53:48.213Z",
+          "description": "Collect from customer",
+          "debit": 0,
+          "credit": 1500
+        }
+      ]
+    },
+    {
+      "name": "Equipment",
+      "type": "asset",
+      "entries": [
+        {
+          "date": "2026-02-09T05:53:48.213Z",
+          "description": "Purchase equipment",
+          "debit": 3000,
+          "credit": 0
+        }
+      ]
+    },
+    {
+      "name": "Accounts Payable",
+      "type": "liability",
+      "entries": []
+    },
+    {
+      "name": "Owner Equity",
+      "type": "equity",
+      "entries": [
+        {
+          "date": "2026-02-09T05:53:48.213Z",
+          "description": "Owner initial investment",
+          "debit": 0,
+          "credit": 10000
+        }
+      ]
+    },
+    {
+      "name": "Service Revenue",
+      "type": "revenue",
+      "entries": [
+        {
+          "date": "2026-02-09T05:53:48.213Z",
+          "description": "Services provided on account",
+          "debit": 0,
+          "credit": 2500
+        }
+      ]
+    },
+    {
+      "name": "Rent Expense",
+      "type": "expense",
+      "entries": [
+        {
+          "date": "2026-02-09T05:53:48.213Z",
+          "description": "Pay monthly rent",
+          "debit": 800,
+          "credit": 0
+        }
+      ]
+    },
+    {
+      "name": "Utilities Expense",
+      "type": "expense",
+      "entries": [
+        {
+          "date": "2026-02-09T05:53:48.213Z",
+          "description": "Pay utilities",
+          "debit": 150,
+          "credit": 0
+        }
+      ]
+    }
+  ],
+  "journal": [
+    {
+      "description": "Owner initial investment",
+      "debits": [
+        {
+          "account": "Cash",
+          "amount": 10000
+        }
+      ],
+      "credits": [
+        {
+          "account": "Owner Equity",
+          "amount": 10000
+        }
+      ],
+      "date": "2026-02-09T05:53:48.213Z"
+    },
+    {
+      "description": "Purchase equipment",
+      "debits": [
+        {
+          "account": "Equipment",
+          "amount": 3000
+        }
+      ],
+      "credits": [
+        {
+          "account": "Cash",
+          "amount": 3000
+        }
+      ],
+      "date": "2026-02-09T05:53:48.213Z"
+    },
+    {
+      "description": "Services provided on account",
+      "debits": [
+        {
+          "account": "Accounts Receivable",
+          "amount": 2500
+        }
+      ],
+      "credits": [
+        {
+          "account": "Service Revenue",
+          "amount": 2500
+        }
+      ],
+      "date": "2026-02-09T05:53:48.213Z"
+    },
+    {
+      "description": "Pay monthly rent",
+      "debits": [
+        {
+          "account": "Rent Expense",
+          "amount": 800
+        }
+      ],
+      "credits": [
+        {
+          "account": "Cash",
+          "amount": 800
+        }
+      ],
+      "date": "2026-02-09T05:53:48.213Z"
+    },
+    {
+      "description": "Collect from customer",
+      "debits": [
+        {
+          "account": "Cash",
+          "amount": 1500
+        }
+      ],
+      "credits": [
+        {
+          "account": "Accounts Receivable",
+          "amount": 1500
+        }
+      ],
+      "date": "2026-02-09T05:53:48.213Z"
+    },
+    {
+      "description": "Pay utilities",
+      "debits": [
+        {
+          "account": "Utilities Expense",
+          "amount": 150
+        }
+      ],
+      "credits": [
+        {
+          "account": "Cash",
+          "amount": 150
+        }
+      ],
+      "date": "2026-02-09T05:53:48.213Z"
+    }
+  ]
+}

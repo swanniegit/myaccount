@@ -1,0 +1,43 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createServerClient } from '@/lib/supabase-server'
+import type { PushVoidRequest } from '@/lib/livehis-push/types'
+
+export async function POST(req: NextRequest) {
+  let body: PushVoidRequest
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+
+  const { invoice_external_ref } = body
+  if (!invoice_external_ref) {
+    return NextResponse.json({ error: 'Missing invoice_external_ref' }, { status: 400 })
+  }
+
+  const supabase = createServerClient()
+
+  const { data: invoice, error: findErr } = await supabase
+    .from('acct_invoices')
+    .select('id')
+    .eq('external_ref', invoice_external_ref)
+    .maybeSingle()
+
+  if (findErr) {
+    return NextResponse.json({ error: findErr.message }, { status: 500 })
+  }
+  if (!invoice) {
+    return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
+  }
+
+  const { error: updateErr } = await supabase
+    .from('acct_invoices')
+    .update({ status: 'void' })
+    .eq('id', invoice.id)
+
+  if (updateErr) {
+    return NextResponse.json({ error: updateErr.message }, { status: 500 })
+  }
+
+  return NextResponse.json({ success: true })
+}

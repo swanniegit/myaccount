@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>General Ledger</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f5f5f5; padding: 20px; }
+    h1 { margin-bottom: 20px; color: #333; }
+    h2 { margin: 20px 0 10px; color: #555; font-size: 1.2em; }
+
+    .container { max-width: 1200px; margin: 0 auto; }
+
+    .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+    .tab { padding: 10px 20px; background: #ddd; border: none; cursor: pointer; border-radius: 5px 5px 0 0; font-size: 1em; }
+    .tab.active { background: #fff; font-weight: bold; }
+
+    .panel { display: none; background: #fff; padding: 20px; border-radius: 0 5px 5px 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .panel.active { display: block; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 10px; text-align: left; border-bottom: 1px solid #eee; }
+    th { background: #f9f9f9; font-weight: 600; }
+    .amount { text-align: right; font-family: monospace; }
+    .debit { color: #c00; }
+    .credit { color: #080; }
+
+    .t-account { display: inline-block; border: 2px solid #333; margin: 10px; min-width: 250px; background: #fff; }
+    .t-account-name { background: #333; color: #fff; padding: 8px; text-align: center; font-weight: bold; }
+    .t-account-body { display: flex; min-height: 100px; }
+    .t-account-side { flex: 1; padding: 10px; }
+    .t-account-side.debit { border-right: 1px solid #333; }
+    .t-account-side h4 { font-size: 0.8em; color: #666; margin-bottom: 5px; }
+    .t-account-entry { font-family: monospace; font-size: 0.9em; }
+    .t-account-total { border-top: 1px solid #333; padding-top: 5px; margin-top: 10px; font-weight: bold; }
+    .t-account-balance { background: #f0f0f0; padding: 5px; text-align: center; font-weight: bold; }
+
+    form { margin: 20px 0; padding: 20px; background: #f9f9f9; border-radius: 5px; }
+    label { display: block; margin: 10px 0 5px; font-weight: 500; }
+    input, select { padding: 8px; font-size: 1em; border: 1px solid #ccc; border-radius: 3px; width: 100%; max-width: 300px; }
+    button { padding: 10px 20px; background: #007bff; color: #fff; border: none; border-radius: 5px; cursor: pointer; font-size: 1em; margin-top: 10px; }
+    button:hover { background: #0056b3; }
+
+    .entry-row { display: flex; gap: 10px; align-items: center; margin: 5px 0; }
+    .entry-row select { width: 200px; }
+    .entry-row input { width: 120px; }
+    .entry-row button { padding: 5px 10px; background: #dc3545; }
+
+    .error { color: #c00; margin: 10px 0; padding: 10px; background: #fee; border-radius: 3px; }
+    .success { color: #080; margin: 10px 0; padding: 10px; background: #efe; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>General Ledger</h1>
+
+    <div class="tabs">
+      <button class="tab active" data-panel="accounts">Accounts</button>
+      <button class="tab" data-panel="journal">Journal</button>
+      <button class="tab" data-panel="transaction">New Transaction</button>
+      <button class="tab" data-panel="trial-balance">Trial Balance</button>
+    </div>
+
+    <div id="accounts" class="panel active">
+      <h2>Chart of Accounts</h2>
+      <div id="accounts-list"></div>
+
+      <h2>T-Accounts</h2>
+      <div id="t-accounts"></div>
+    </div>
+
+    <div id="journal" class="panel">
+      <h2>General Journal</h2>
+      <table>
+        <thead>
+          <tr><th>Date</th><th>Description</th><th>Account</th><th class="amount">Debit</th><th class="amount">Credit</th></tr>
+        </thead>
+        <tbody id="journal-entries"></tbody>
+      </table>
+    </div>
+
+    <div id="transaction" class="panel">
+      <h2>Record Transaction</h2>
+      <div id="transaction-message"></div>
+      <form id="transaction-form">
+        <label>Description</label>
+        <input type="text" id="tx-description" required>
+
+        <h3 style="margin-top: 20px;">Debits</h3>
+        <div id="debit-entries"></div>
+        <button type="button" onclick="addDebitRow()">+ Add Debit</button>
+
+        <h3 style="margin-top: 20px;">Credits</h3>
+        <div id="credit-entries"></div>
+        <button type="button" onclick="addCreditRow()">+ Add Credit</button>
+
+        <div style="margin-top: 20px;">
+          <button type="submit">Record Transaction</button>
+        </div>
+      </form>
+    </div>
+
+    <div id="trial-balance" class="panel">
+      <h2>Trial Balance</h2>
+      <table>
+        <thead>
+          <tr><th>Account</th><th class="amount">Debit</th><th class="amount">Credit</th></tr>
+        </thead>
+        <tbody id="trial-balance-body"></tbody>
+        <tfoot id="trial-balance-foot"></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    let accounts = [];
+
+    // Tab switching
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.panel).classList.add('active');
+        loadData();
+      });
+    });
+
+    async function loadData() {
+      await loadAccounts();
+      await loadJournal();
+      await loadTrialBalance();
+    }
+
+    async function loadAccounts() {
+      const res = await fetch('/api/accounts');
+      accounts = await res.json();
+
+      // Accounts list
+      const list = document.getElementById('accounts-list');
+      list.innerHTML = `<table>
+        <thead><tr><th>Account</th><th>Type</th><th class="amount">Balance</th></tr></thead>
+        <tbody>${accounts.map(a => `
+          <tr>
+            <td>${a.name}</td>
+            <td>${a.type}</td>
+            <td class="amount">${formatMoney(a.balance)}</td>
+          </tr>
+        `).join('')}</tbody>
+      </table>`;
+
+      // T-Accounts
+      const tAccounts = document.getElementById('t-accounts');
+      tAccounts.innerHTML = '';
+      for (const acc of accounts) {
+        const res = await fetch(`/api/accounts/${encodeURIComponent(acc.name)}`);
+        const detail = await res.json();
+
+        const debits = detail.entries.filter(e => e.debit > 0);
+        const credits = detail.entries.filter(e => e.credit > 0);
+
+        tAccounts.innerHTML += `
+          <div class="t-account">
+            <div class="t-account-name">${acc.name} (${acc.type})</div>
+            <div class="t-account-body">
+              <div class="t-account-side debit">
+                <h4>Debits</h4>
+                ${debits.map(e => `<div class="t-account-entry">${formatMoney(e.debit)}</div>`).join('')}
+                <div class="t-account-total">${formatMoney(detail.totalDebits)}</div>
+              </div>
+              <div class="t-account-side credit">
+                <h4>Credits</h4>
+                ${credits.map(e => `<div class="t-account-entry">${formatMoney(e.credit)}</div>`).join('')}
+                <div class="t-account-total">${formatMoney(detail.totalCredits)}</div>
+              </div>
+            </div>
+            <div class="t-account-balance">Balance: ${formatMoney(detail.balance)}</div>
+          </div>
+        `;
+      }
+
+      updateAccountSelects();
+    }
+
+    async function loadJournal() {
+      const res = await fetch('/api/journal');
+      const journal = await res.json();
+
+      const tbody = document.getElementById('journal-entries');
+      tbody.innerHTML = '';
+
+      for (const entry of journal) {
+        const date = new Date(entry.date).toLocaleDateString();
+        let first = true;
+
+        for (const d of entry.debits) {
+          tbody.innerHTML += `<tr>
+            <td>${first ? date : ''}</td>
+            <td>${first ? entry.description : ''}</td>
+            <td>${d.account}</td>
+            <td class="amount debit">${formatMoney(d.amount)}</td>
+            <td class="amount"></td>
+          </tr>`;
+          first = false;
+        }
+        for (const c of entry.credits) {
+          tbody.innerHTML += `<tr>
+            <td></td>
+            <td></td>
+            <td style="padding-left: 30px;">${c.account}</td>
+            <td class="amount"></td>
+            <td class="amount credit">${formatMoney(c.amount)}</td>
+          </tr>`;
+        }
+        tbody.innerHTML += `<tr><td colspan="5" style="height: 10px;"></td></tr>`;
+      }
+    }
+
+    async function loadTrialBalance() {
+      const res = await fetch('/api/trial-balance');
+      const tb = await res.json();
+
+      document.getElementById('trial-balance-body').innerHTML = tb.accounts.map(a => `
+        <tr>
+          <td>${a.name}</td>
+          <td class="amount">${a.debit ? formatMoney(a.debit) : ''}</td>
+          <td class="amount">${a.credit ? formatMoney(a.credit) : ''}</td>
+        </tr>
+      `).join('');
+
+      document.getElementById('trial-balance-foot').innerHTML = `
+        <tr style="font-weight: bold; border-top: 2px solid #333;">
+          <td>TOTALS</td>
+          <td class="amount">${formatMoney(tb.totalDebit)}</td>
+          <td class="amount">${formatMoney(tb.totalCredit)}</td>
+        </tr>
+      `;
+    }
+
+    function formatMoney(amount) {
+      return '$' + amount.toFixed(2);
+    }
+
+    function updateAccountSelects() {
+      document.querySelectorAll('.account-select').forEach(select => {
+        const current = select.value;
+        select.innerHTML = '<option value="">Select account...</option>' +
+          accounts.map(a => `<option value="${a.name}">${a.name}</option>`).join('');
+        select.value = current;
+      });
+    }
+
+    function addDebitRow() {
+      const div = document.getElementById('debit-entries');
+      div.innerHTML += `
+        <div class="entry-row">
+          <select class="account-select" required></select>
+          <input type="number" step="0.01" min="0.01" placeholder="Amount" required>
+          <button type="button" onclick="this.parentElement.remove()">X</button>
+        </div>
+      `;
+      updateAccountSelects();
+    }
+
+    function addCreditRow() {
+      const div = document.getElementById('credit-entries');
+      div.innerHTML += `
+        <div class="entry-row">
+          <select class="account-select" required></select>
+          <input type="number" step="0.01" min="0.01" placeholder="Amount" required>
+          <button type="button" onclick="this.parentElement.remove()">X</button>
+        </div>
+      `;
+      updateAccountSelects();
+    }
+
+    document.getElementById('transaction-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById('transaction-message');
+
+      const description = document.getElementById('tx-description').value;
+      const debits = [];
+      const credits = [];
+
+      document.querySelectorAll('#debit-entries .entry-row').forEach(row => {
+        const account = row.querySelector('select').value;
+        const amount = parseFloat(row.querySelector('input').value);
+        if (account && amount) debits.push({ account, amount });
+      });
+
+      document.querySelectorAll('#credit-entries .entry-row').forEach(row => {
+        const account = row.querySelector('select').value;
+        const amount = parseFloat(row.querySelector('input').value);
+        if (account && amount) credits.push({ account, amount });
+      });
+
+      if (debits.length === 0 || credits.length === 0) {
+        msg.innerHTML = '<div class="error">Need at least one debit and one credit</div>';
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/transactions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ description, debits, credits })
+        });
+
+        const data = await res.json();
+        if (data.error) {
+          msg.innerHTML = `<div class="error">${data.error}</div>`;
+        } else {
+          msg.innerHTML = '<div class="success">Transaction recorded!</div>';
+          document.getElementById('tx-description').value = '';
+          document.getElementById('debit-entries').innerHTML = '';
+          document.getElementById('credit-entries').innerHTML = '';
+          loadData();
+        }
+      } catch (err) {
+        msg.innerHTML = `<div class="error">${err.message}</div>`;
+      }
+    });
+
+    // Initial load
+    loadData();
+    addDebitRow();
+    addCreditRow();
+  </script>
+</body>
+</html>
