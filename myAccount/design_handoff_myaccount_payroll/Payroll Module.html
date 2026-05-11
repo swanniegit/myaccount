@@ -1,0 +1,47 @@
+<!doctype html>
+<html><head>
+<meta charset="utf-8">
+<title>myAccount Payroll · SA</title>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;700&family=Patrick+Hand&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; background: #ece6d4; font-family: 'Patrick Hand', sans-serif; }
+  body { padding: 24px; }
+  h1 { font-family: 'Caveat', cursive; font-size: 42px; margin: 0 0 4px; color: #1f2a44; }
+  .sub { font-family: 'Patrick Hand'; font-size: 14px; color: #4b5470; margin-bottom: 24px; }
+  .grid { display: grid; grid-template-columns: 1fr; gap: 28px; max-width: 940px; margin: 0 auto; }
+  .label { font-family: 'Caveat'; font-size: 22px; color: #d97757; margin-bottom: 6px; }
+</style>
+</head>
+<body>
+<h1>Payroll Module · South Africa</h1>
+<div class="sub">7 screens · PAYE 2025/26 · UIF · SDL · ETI · EMP201/501 · IRP5 · BCEA</div>
+<div id="root" class="grid"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="lib/sketch.jsx"></script>
+<script type="text/babel" src="v2/payroll.jsx"></script>
+<script type="text/babel">
+(function mount(){
+  if (!window.V2Payroll || !window.Frame) { setTimeout(mount, 100); return; }
+  const screens = [
+    ['Dashboard', V2Payroll.Dashboard],
+    ['Employees', V2Payroll.Employees],
+    ['Run payroll', V2Payroll.Run],
+    ['Payslip', V2Payroll.Payslip],
+    ['EMP201', V2Payroll.EMP201],
+    ['IRP5 / EMP501', V2Payroll.IRP5],
+    ['Leave', V2Payroll.Leave],
+  ];
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    <>{screens.map(([label, C], i) => (
+      <div key={i}>
+        <div className="label">{i+1}. {label}</div>
+        <C />
+      </div>
+    ))}</>
+  );
+})();
+</script>
+</body></html>

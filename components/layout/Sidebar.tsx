@@ -1,12 +1,15 @@
 'use client'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { createAuthClient } from '@/lib/supabase-auth'
 
 const nav = [
   { href: '/dashboard', label: 'Home' },
   { href: '/sales', label: 'Sales' },
   { href: '/purchases', label: 'Purchases' },
   { href: '/banking', label: 'Banking' },
+  { href: '/payroll', label: 'Payroll' },
   { href: '/vat', label: 'VAT 201' },
   { href: '/reports', label: 'Reports' },
   { href: '/setup', label: 'Setup' },
@@ -14,10 +17,27 @@ const nav = [
 
 export default function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
+  const [email, setEmail] = useState<string | null>(null)
+
+  useEffect(() => {
+    const supabase = createAuthClient()
+    supabase.auth.getUser().then(({ data }) => {
+      setEmail(data.user?.email ?? null)
+    })
+  }, [])
+
+  if (pathname.startsWith('/auth')) return null
 
   function isActive(href: string) {
     if (href === '/dashboard') return pathname === '/dashboard' || pathname === '/'
     return pathname === href || pathname.startsWith(href + '/')
+  }
+
+  async function handleSignOut() {
+    const supabase = createAuthClient()
+    await supabase.auth.signOut()
+    router.push('/auth/login')
   }
 
   return (
@@ -49,6 +69,24 @@ export default function Sidebar() {
           )
         })}
       </nav>
+      <div className="border-t px-4 py-3" style={{ borderColor: 'var(--paper-edge)' }}>
+        {email && (
+          <div
+            className="text-xs truncate mb-2"
+            style={{ color: 'var(--muted)' }}
+            title={email}
+          >
+            {email}
+          </div>
+        )}
+        <button
+          onClick={handleSignOut}
+          className="text-xs"
+          style={{ color: 'var(--ink-2)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+        >
+          Sign out
+        </button>
+      </div>
     </aside>
   )
 }

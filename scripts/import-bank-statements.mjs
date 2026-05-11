@@ -22,12 +22,9 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 const FORCE = process.argv.includes('--force')
 
 const PDFS = [
-  'C:\\Users\\sanne\\Downloads\\GOLD_BUSINESS_ACCOUNT_33.pdf',
-  'C:\\Users\\sanne\\Downloads\\GOLD_BUSINESS_ACCOUNT_34.pdf',
-  'C:\\Users\\sanne\\Downloads\\GOLD_BUSINESS_ACCOUNT_35.pdf',
-  'C:\\Users\\sanne\\Downloads\\GOLD_BUSINESS_ACCOUNT_36.pdf',
-  'C:\\Users\\sanne\\Downloads\\GOLD_BUSINESS_ACCOUNT_37.pdf',
-  'C:\\Users\\sanne\\Downloads\\GOLD_BUSINESS_ACCOUNT_38.pdf',
+  'C:\\Users\\sanne\\Downloads\\GOLD_BUSINESS_ACCOUNT_36 (1).pdf',
+  'C:\\Users\\sanne\\Downloads\\GOLD_BUSINESS_ACCOUNT_37 (1).pdf',
+  'C:\\Users\\sanne\\Downloads\\GOLD_BUSINESS_ACCOUNT_38 (1).pdf',
 ]
 
 const MONTH = {
@@ -193,9 +190,9 @@ async function main() {
     allTxns = allTxns.concat(txns)
   }
 
-  // 5. Filter: only from 2025-11-01 (first liveHis invoice date)
-  allTxns = allTxns.filter(t => t.date >= '2025-11-01')
-  console.log(`\nTotal transactions after filter (>= 2025-11-01): ${allTxns.length}`)
+  // 5. Filter: only from 2026-03-01
+  allTxns = allTxns.filter(t => t.date >= '2026-03-01')
+  console.log(`\nTotal transactions after filter (>= 2026-03-01): ${allTxns.length}`)
 
   // 6. Batch insert
   const BATCH = 100
