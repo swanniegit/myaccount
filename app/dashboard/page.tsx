@@ -34,39 +34,11 @@ export default function DashboardPage() {
   useEffect(() => {
     async function load() {
       try {
-        const { data: accounts } = await supabase
-          .from('acct_accounts')
-          .select('id, code, name, type, normal_balance')
-
-        const { data: lines } = await supabase
-          .from('acct_journal_lines')
-          .select('account_id, debit, credit')
-
-        if (accounts && lines) {
-          const balances: Record<string, number> = {}
-          for (const acc of accounts) {
-            const accLines = lines.filter(l => l.account_id === acc.id)
-            const dr = accLines.reduce((s, l) => s + Number(l.debit), 0)
-            const cr = accLines.reduce((s, l) => s + Number(l.credit), 0)
-            balances[acc.code] =
-              acc.normal_balance === 'debit' ? dr - cr : cr - dr
-          }
-
-          const cashAccounts = accounts.filter(a =>
-            ['1000', '1010', '1020'].includes(a.code)
-          )
-          const cash = cashAccounts.reduce((s, a) => s + (balances[a.code] ?? 0), 0)
-
-          const arAcc = accounts.find(a => a.code === '1100')
-          const apAcc = accounts.find(a => a.code === '2000')
-          const vatAcc = accounts.find(a => a.code === '2100')
-
-          setKpi({
-            cash,
-            ar: arAcc ? (balances[arAcc.code] ?? 0) : 0,
-            ap: apAcc ? (balances[apAcc.code] ?? 0) : 0,
-            vat: vatAcc ? (balances[vatAcc.code] ?? 0) : 0,
-          })
+        // KPIs computed server-side (batches all journal lines, bypasses 1000-row limit)
+        const kpiRes = await fetch('/api/kpi')
+        if (kpiRes.ok) {
+          const data = await kpiRes.json()
+          setKpi({ cash: data.cash, ar: data.ar, ap: data.ap, vat: data.vat })
         }
 
         const { data: recentLines } = await supabase
