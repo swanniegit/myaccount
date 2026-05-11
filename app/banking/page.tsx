@@ -1,48 +1,96 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
 import Button from '@/components/ui/Button'
 
-interface BankRow {
+interface BankTxn {
   id: string
   date: string
   description: string
   amount: number
+  is_reconciled: boolean
+  journal_line_id: string | null
 }
 
-interface BookRow {
+interface BankAccount {
   id: string
-  date: string
-  ref: string
-  description: string
-  accounts: string
-  amount: number
+  name: string
+  account_number: string
+  balance: number
 }
-
-const BANK_ROWS: BankRow[] = [
-  { id: 'b1', date: '14/03', description: 'POS Pick n Pay 12345', amount: 3200 },
-  { id: 'b2', date: '13/03', description: 'EFT Rent City of CT', amount: -8000 },
-  { id: 'b3', date: '12/03', description: 'DD Eskom 9988', amount: -1741 },
-  { id: 'b4', date: '11/03', description: 'Salaries batch', amount: -12000 },
-  { id: 'b5', date: '10/03', description: 'Card fee', amount: -45 },
-]
-
-const BOOK_ROWS: BookRow[] = [
-  { id: 'k1', date: '14/03', ref: 'INV-102 – Pick n Pay', description: '', accounts: 'Dr 1000 / Cr 4000+2220', amount: 3200 },
-  { id: 'k2', date: '13/03', ref: 'BILL-44 – Rent', description: '', accounts: 'Cr 1000 / Dr 5100', amount: -8000 },
-  { id: 'k3', date: '12/03', ref: 'BILL-45 – Eskom', description: '', accounts: 'Cr 1000 / Dr 5200+2210', amount: -1741 },
-  { id: 'k4', date: '11/03', ref: 'SAL-08 – Wages', description: '', accounts: 'Cr 1000 / Dr 5300', amount: -12000 },
-]
 
 export default function BankingPage() {
-  const [matched, setMatched] = useState<string[]>(['b1', 'b2', 'b3', 'b4'])
+  const [account, setAccount] = useState<BankAccount | null>(null)
+  const [txns, setTxns] = useState<BankTxn[]>([])
+  const [matched, setMatched] = useState<Set<string>>(new Set())
+  const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(0)
+  const [totalCount, setTotalCount] = useState(0)
 
-  const needsReview = BANK_ROWS.length - matched.length
-  const autoMatched = matched.length
+  const PAGE_SIZE = 50
 
-  function toggleMatch(bankId: string) {
-    setMatched(prev =>
-      prev.includes(bankId) ? prev.filter(id => id !== bankId) : [...prev, bankId]
-    )
+  useEffect(() => {
+    loadAccount()
+  }, [])
+
+  useEffect(() => {
+    if (account) loadTransactions()
+  }, [account, page])
+
+  async function loadAccount() {
+    const { data } = await supabase
+      .from('acct_bank_accounts')
+      .select('id, name, account_number, balance')
+      .eq('account_number', '63044191201')
+      .maybeSingle()
+    setAccount(data ?? null)
+    if (!data) setLoading(false)
+  }
+
+  async function loadTransactions() {
+    if (!account) return
+    const from = page * PAGE_SIZE
+    const to = from + PAGE_SIZE - 1
+
+    const { data, count } = await supabase
+      .from('acct_bank_transactions')
+      .select('id, date, description, amount, is_reconciled, journal_line_id', { count: 'exact' })
+      .eq('bank_account_id', account.id)
+      .order('date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .range(from, to)
+
+    if (data) {
+      setTxns(data)
+      setMatched(new Set(data.filter(r => r.is_reconciled || r.journal_line_id).map(r => r.id)))
+    }
+    if (count !== null) setTotalCount(count)
+    setLoading(false)
+  }
+
+  function toggleMatch(id: string) {
+    setMatched(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  function fmtDate(d: string) {
+    const dt = new Date(d + 'T00:00:00')
+    return `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}`
+  }
+
+  const needsReview = txns.filter(t => !matched.has(t.id)).length
+  const matchedCount = txns.filter(t => matched.has(t.id)).length
+  const masked = account ? account.account_number.slice(0, 4) + '...' + account.account_number.slice(-4) : ''
+  const lastDate = txns[0] ? fmtDate(txns[0].date) : '—'
+
+  if (loading) {
+    return <div className="p-5 text-sm" style={{ color: 'var(--ink-2)' }}>Loading transactions…</div>
+  }
+  if (!account) {
+    return <div className="p-5 text-sm" style={{ color: 'var(--ink-2)' }}>No bank account configured.</div>
   }
 
   return (
@@ -51,124 +99,155 @@ export default function BankingPage() {
         <div>
           <h1 className="text-xl font-semibold">Bank reconciliation</h1>
           <p className="text-xs mt-0.5" style={{ color: 'var(--ink-2)' }}>
-            FNB Cheque · matching imported txns to your books
+            {account.name} · matching imported txns to your books
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" size="sm">Re-import</Button>
+          <Button variant="secondary" size="sm" onClick={() => { setPage(0); loadTransactions() }}>
+            Refresh
+          </Button>
           <Button size="sm">Finish reconcile</Button>
         </div>
       </div>
 
       {/* Account + stats */}
       <div className="mb-4">
-        <div className="text-sm font-semibold mb-0.5">FNB Cheque · 62-0014...3201</div>
+        <div className="text-sm font-semibold mb-0.5">{account.name} · {masked}</div>
         <div className="text-xs mb-3" style={{ color: 'var(--ink-2)' }}>
-          Last import 14/03 · {BANK_ROWS.length} txns to review
+          Last statement {lastDate} · {totalCount} transactions imported
         </div>
         <div className="grid grid-cols-4 gap-3">
-          <StatBox label="Imported" value={String(BANK_ROWS.length)} />
-          <StatBox label="Auto-matched" value={String(autoMatched)} />
+          <StatBox label="Total imported" value={String(totalCount)} />
+          <StatBox label="Matched" value={String(matchedCount)} />
           <StatBox label="Needs review" value={String(needsReview)} accent={needsReview > 0} />
-          <StatBox label="Closing balance" value="R (641)" />
+          <StatBox
+            label="Closing balance"
+            value={`R ${account.balance.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`}
+          />
         </div>
       </div>
 
       {/* Two-column match view */}
-      <div className="grid grid-cols-[1fr_40px_1fr] gap-0 rounded-lg overflow-hidden" style={{ border: '1px solid var(--paper-edge)' }}>
-        {/* Bank statement header */}
-        <div className="px-3 py-2 text-xs font-medium" style={{ background: 'var(--paper-edge)', color: 'var(--ink-2)' }}>
-          Bank statement
-        </div>
-        <div style={{ background: 'var(--paper-edge)' }} />
-        <div className="px-3 py-2 text-xs font-medium" style={{ background: 'var(--paper-edge)', color: 'var(--ink-2)' }}>
-          Your books
+      <div
+        className="rounded-lg overflow-hidden"
+        style={{ border: '1px solid var(--paper-edge)' }}
+      >
+        <div className="grid grid-cols-[1fr_40px_1fr]">
+          <div className="px-3 py-2 text-xs font-medium" style={{ background: 'var(--paper-edge)', color: 'var(--ink-2)' }}>
+            Bank statement
+          </div>
+          <div style={{ background: 'var(--paper-edge)' }} />
+          <div className="px-3 py-2 text-xs font-medium" style={{ background: 'var(--paper-edge)', color: 'var(--ink-2)' }}>
+            Your books
+          </div>
         </div>
 
-        {/* Rows */}
-        {BANK_ROWS.map((bank, i) => {
-          const book = BOOK_ROWS[i]
-          const isMatched = matched.includes(bank.id)
+        {txns.map((txn, i) => {
+          const isMatched = matched.has(txn.id)
           const rowBg = i % 2 === 0 ? 'var(--surface)' : 'var(--paper)'
 
           return (
-            <>
+            <div key={txn.id} className="grid grid-cols-[1fr_40px_1fr]">
               {/* Bank side */}
               <div
-                key={`b-${bank.id}`}
                 className="px-3 py-2 text-xs flex justify-between items-center"
                 style={{
-                  background: bank.amount > 0 ? 'var(--accent-soft)' : rowBg,
-                  borderBottom: '1px solid var(--paper-edge)',
+                  background: txn.amount > 0 ? 'var(--accent-soft)' : rowBg,
+                  borderTop: '1px solid var(--paper-edge)',
                 }}
               >
-                <div>
-                  <span className="font-mono mr-2" style={{ color: 'var(--ink-2)', fontSize: 11 }}>{bank.date}</span>
-                  <span>{bank.description}</span>
+                <div className="flex-1 min-w-0 pr-2">
+                  <span className="font-mono mr-2" style={{ color: 'var(--ink-2)', fontSize: 11 }}>
+                    {fmtDate(txn.date)}
+                  </span>
+                  <span className="truncate">{txn.description}</span>
                 </div>
                 <span
-                  className="font-mono font-semibold"
-                  style={{ color: bank.amount > 0 ? 'var(--accent)' : 'var(--ink)' }}
+                  className="font-mono font-semibold whitespace-nowrap"
+                  style={{ color: txn.amount > 0 ? 'var(--accent)' : 'var(--ink)' }}
                 >
-                  {bank.amount > 0 ? '' : ''}{bank.amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                  {txn.amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
                 </span>
               </div>
 
               {/* Match indicator */}
               <div
-                key={`m-${bank.id}`}
-                className="flex items-center justify-center"
-                style={{ background: rowBg, borderBottom: '1px solid var(--paper-edge)' }}
-                onClick={() => toggleMatch(bank.id)}
+                className="flex items-center justify-center cursor-pointer"
+                style={{ background: rowBg, borderTop: '1px solid var(--paper-edge)' }}
+                onClick={() => toggleMatch(txn.id)}
               >
                 <button
                   className="w-6 h-6 rounded-full flex items-center justify-center text-xs transition-colors"
                   style={{
-                    border: `1.5px solid ${isMatched ? 'var(--positive)' : book ? 'var(--muted)' : 'var(--accent)'}`,
-                    color: isMatched ? 'var(--positive)' : book ? 'var(--muted)' : 'var(--accent)',
+                    border: `1.5px solid ${isMatched ? 'var(--positive)' : 'var(--muted)'}`,
+                    color: isMatched ? 'var(--positive)' : 'var(--muted)',
                     background: 'transparent',
                   }}
                 >
-                  {isMatched ? '✓' : book ? '✓' : '?'}
+                  {isMatched ? '✓' : '?'}
                 </button>
               </div>
 
               {/* Books side */}
               <div
-                key={`k-${bank.id}`}
                 className="px-3 py-2 text-xs"
                 style={{
-                  background: !book ? 'rgba(217,119,87,0.08)' : rowBg,
-                  borderBottom: '1px solid var(--paper-edge)',
+                  background: txn.journal_line_id ? rowBg : 'rgba(217,119,87,0.05)',
+                  borderTop: '1px solid var(--paper-edge)',
                 }}
               >
-                {book ? (
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <span className="font-mono mr-2" style={{ color: 'var(--ink-2)', fontSize: 11 }}>{book.date}</span>
-                      <span className="font-medium">{book.ref}</span>
-                      <div style={{ color: 'var(--muted)', fontSize: 11 }}>{book.accounts}</div>
-                    </div>
-                    <span className="font-mono font-semibold">{book.amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</span>
+                {txn.journal_line_id ? (
+                  <div className="font-medium" style={{ color: 'var(--positive)' }}>
+                    matched to journal entry
                   </div>
                 ) : (
                   <div>
                     <div className="font-medium" style={{ color: 'var(--accent)' }}>no match found</div>
-                    <div style={{ color: 'var(--ink-2)', fontSize: 11 }}>suggested: Dr 5400 Bank charges</div>
+                    <div style={{ color: 'var(--ink-2)', fontSize: 11 }}>click ✓ to mark matched</div>
                   </div>
                 )}
               </div>
-            </>
+            </div>
           )
         })}
       </div>
 
-      {/* Hint bar */}
+      {/* Pagination */}
+      {totalCount > PAGE_SIZE && (
+        <div className="flex items-center justify-between mt-3 text-xs" style={{ color: 'var(--ink-2)' }}>
+          <span>
+            Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount)} of {totalCount}
+          </span>
+          <div className="flex gap-2">
+            <button
+              disabled={page === 0}
+              onClick={() => setPage(p => p - 1)}
+              className="px-2 py-1 rounded"
+              style={{ border: '1px solid var(--paper-edge)', opacity: page === 0 ? 0.4 : 1 }}
+            >
+              ← Newer
+            </button>
+            <button
+              disabled={(page + 1) * PAGE_SIZE >= totalCount}
+              onClick={() => setPage(p => p + 1)}
+              className="px-2 py-1 rounded"
+              style={{
+                border: '1px solid var(--paper-edge)',
+                opacity: (page + 1) * PAGE_SIZE >= totalCount ? 0.4 : 1,
+              }}
+            >
+              Older →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Hint */}
       <div
         className="mt-3 px-3 py-2 rounded text-xs"
         style={{ border: '1px dashed var(--paper-edge)', color: 'var(--ink-2)', fontStyle: 'italic' }}
       >
-        {needsReview} needs review · ⌘↑ accept suggestion · drag bank row → book row to match manually
+        {needsReview} on this page need review · re-run import script with --force to reload all statements
       </div>
     </div>
   )
@@ -183,8 +262,12 @@ function StatBox({ label, value, accent }: { label: string; value: string; accen
         border: `1px solid ${accent ? 'var(--accent)' : 'var(--paper-edge)'}`,
       }}
     >
-      <div className="text-xs mb-1" style={{ color: accent ? 'var(--accent)' : 'var(--ink-2)' }}>{label}</div>
-      <div className="font-mono text-xl font-bold" style={{ color: accent ? 'var(--accent)' : 'var(--ink)' }}>{value}</div>
+      <div className="text-xs mb-1" style={{ color: accent ? 'var(--accent)' : 'var(--ink-2)' }}>
+        {label}
+      </div>
+      <div className="font-mono text-xl font-bold" style={{ color: accent ? 'var(--accent)' : 'var(--ink)' }}>
+        {value}
+      </div>
     </div>
   )
 }
