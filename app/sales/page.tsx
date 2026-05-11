@@ -16,19 +16,24 @@ export default function SalesPage() {
   const [period, setPeriod] = useState<MonthValue>(currentMonth)
   const [loading, setLoading] = useState(true)
 
+  const { start, end } = monthRange(period)
+
   useEffect(() => {
+    setLoading(true)
     supabase
       .from('acct_invoices')
       .select('*, contact:acct_contacts(name, vat_number)')
-      .order('created_at', { ascending: false })
+      .gte('date', start)
+      .lt('date', end)
+      .order('date', { ascending: false })
+      .limit(2000)
       .then(({ data }) => {
         if (data) setInvoices(data as Invoice[])
         setLoading(false)
       })
-  }, [])
+  }, [start, end])
 
-  const { start, end } = monthRange(period)
-  const periodInvoices = invoices.filter(inv => inv.date && inv.date >= start && inv.date < end)
+  const periodInvoices = invoices
 
   const displayed = filter === 'All'
     ? periodInvoices
