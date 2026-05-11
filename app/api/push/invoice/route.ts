@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   try {
     const contactId = await upsertContact(supabase, contact)
 
-    const journalEntryId = invoice.total > 0
+    const journalEntryId = invoice.total > 0 && invoice.subtotal >= 0 && invoice.vat_amount >= 0
       ? await createInvoiceJournal({
           supabase,
           invoiceNumber: invoice.number,
