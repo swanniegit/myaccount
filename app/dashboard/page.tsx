@@ -15,12 +15,6 @@ interface CashFlowPoint { date: string; in: number; out: number }
 interface IncomeExpensePoint { month: string; income: number; expense: number }
 interface ActivityItem { time: string; description: string; amount: number; side: 'Dr' | 'Cr' }
 
-const NEEDS_YOU = [
-  '4 receipts to file',
-  '2 unreconciled (FNB)',
-  'VAT 201 ready to review',
-  'INV-098 overdue 22d',
-]
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -190,16 +184,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded-lg p-4" style={{ background: 'var(--surface)', border: '1px solid var(--paper-edge)' }}>
           <div className="text-sm font-medium mb-3">Needs you</div>
-          {NEEDS_YOU.map((item, i) => (
-            <div
-              key={i}
-              className="flex justify-between items-center py-2 cursor-pointer hover:opacity-70"
-              style={{ borderBottom: '1px dotted var(--paper-edge)', fontSize: 12, color: 'var(--ink-2)' }}
-            >
-              <span>{item}</span>
-              <span style={{ color: 'var(--muted)' }}>›</span>
-            </div>
-          ))}
+          <p className="text-xs" style={{ color: 'var(--muted)' }}>Nothing pending</p>
         </div>
 
         <div className="rounded-lg p-4" style={{ background: 'var(--surface)', border: '1px solid var(--paper-edge)' }}>

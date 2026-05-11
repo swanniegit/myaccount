@@ -25,17 +25,10 @@ interface PinnedAccount {
   lines: TAccountLine[]
 }
 
-const DEMO_CHIPS: PendingChip[] = [
-  { id: 'c1', label: 'Pick n Pay sale', amount: 3200, ref: 'INV-102' },
-  { id: 'c2', label: 'Eskom utilities', amount: 1741, ref: 'REC-19' },
-  { id: 'c3', label: 'Walk-in cash', amount: 980, ref: 'RCP-44' },
-  { id: 'c4', label: 'March wages', amount: 12000, ref: 'SAL-08' },
-]
-
 export default function JournalPage() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [entries, setEntries] = useState<JournalEntry[]>([])
-  const [chips, setChips] = useState<PendingChip[]>(DEMO_CHIPS)
+  const [chips, setChips] = useState<PendingChip[]>([])
   const [pinned, setPinned] = useState<PinnedAccount[]>([])
   const [dragging, setDragging] = useState<PendingChip | null>(null)
   const [dragTarget, setDragTarget] = useState<{ id: string; side: 'Dr' | 'Cr' } | null>(null)
