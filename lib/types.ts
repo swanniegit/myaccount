@@ -110,6 +110,16 @@ export interface Company {
   tax_year_end: number
   address: string | null
   created_at: string
+  tax_number: string | null
+  vat_registration_date: string | null
+  vat_cycle: string | null
+  paye_ref: string | null
+  efiling_user: string | null
+  books_locked_through: string | null
+  default_vat: string | null
+  inventory_method: string | null
+  phone: string | null
+  email: string | null
 }
 
 export interface AccountBalance {
