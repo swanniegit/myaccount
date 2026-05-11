@@ -4,6 +4,10 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { formatMoney, formatDate } from '@/lib/utils'
 import Button from '@/components/ui/Button'
+import {
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, CartesianGrid,
+} from 'recharts'
 
 interface KPI {
   cash: number
@@ -11,6 +15,9 @@ interface KPI {
   ap: number
   vat: number
 }
+
+interface CashFlowPoint { date: string; in: number; out: number }
+interface IncomeExpensePoint { month: string; income: number; expense: number }
 
 interface ActivityItem {
   time: string
@@ -30,15 +37,22 @@ export default function DashboardPage() {
   const [kpi, setKpi] = useState<KPI>({ cash: 0, ar: 0, ap: 0, vat: 0 })
   const [activity, setActivity] = useState<ActivityItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [cashFlow, setCashFlow] = useState<CashFlowPoint[]>([])
+  const [incomeExpense, setIncomeExpense] = useState<IncomeExpensePoint[]>([])
 
   useEffect(() => {
     async function load() {
       try {
-        // KPIs computed server-side (batches all journal lines, bypasses 1000-row limit)
-        const kpiRes = await fetch('/api/kpi')
+        // KPIs + charts computed server-side (batches all journal lines, bypasses 1000-row limit)
+        const [kpiRes, chartsRes] = await Promise.all([fetch('/api/kpi'), fetch('/api/charts')])
         if (kpiRes.ok) {
           const data = await kpiRes.json()
           setKpi({ cash: data.cash, ar: data.ar, ap: data.ap, vat: data.vat })
+        }
+        if (chartsRes.ok) {
+          const data = await chartsRes.json()
+          setCashFlow(data.cashFlow ?? [])
+          setIncomeExpense(data.incomeExpense ?? [])
         }
 
         const { data: recentLines } = await supabase
@@ -132,32 +146,48 @@ export default function DashboardPage() {
               30d ▾
             </button>
           </div>
-          <div
-            className="h-32 rounded flex items-center justify-center text-xs"
-            style={{
-              background: 'repeating-linear-gradient(45deg,var(--paper-edge) 0,var(--paper-edge) 1px,transparent 0,transparent 50%)',
-              backgroundSize: '8px 8px',
-              color: 'var(--muted)',
-            }}
-          >
-            line chart: money in (green) vs money out (orange)
-          </div>
+          {loading || cashFlow.length === 0 ? (
+            <div className="h-32 rounded animate-pulse" style={{ background: 'var(--paper-edge)' }} />
+          ) : (
+            <ResponsiveContainer width="100%" height={128}>
+              <LineChart data={cashFlow} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--paper-edge)" />
+                <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--ink-2)' }} tickLine={false} interval="preserveStartEnd" />
+                <YAxis tick={{ fontSize: 10, fill: 'var(--ink-2)' }} tickLine={false} axisLine={false}
+                  tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
+                <Tooltip
+                  contentStyle={{ fontSize: 11, border: '1px solid var(--paper-edge)', background: 'var(--surface)' }}
+                  formatter={(v: number, name: string) => [`R ${v.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, name === 'in' ? 'Money in' : 'Money out']}
+                />
+                <Line type="monotone" dataKey="in" stroke="var(--positive)" strokeWidth={1.5} dot={false} />
+                <Line type="monotone" dataKey="out" stroke="var(--accent)" strokeWidth={1.5} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </div>
         <div
           className="rounded-lg p-4"
           style={{ background: 'var(--surface)', border: '1px solid var(--paper-edge)' }}
         >
           <div className="text-sm font-medium mb-3">Income vs expense</div>
-          <div
-            className="h-32 rounded flex items-center justify-center text-xs"
-            style={{
-              background: 'repeating-linear-gradient(45deg,var(--paper-edge) 0,var(--paper-edge) 1px,transparent 0,transparent 50%)',
-              backgroundSize: '8px 8px',
-              color: 'var(--muted)',
-            }}
-          >
-            bar chart by month
-          </div>
+          {loading || incomeExpense.length === 0 ? (
+            <div className="h-32 rounded animate-pulse" style={{ background: 'var(--paper-edge)' }} />
+          ) : (
+            <ResponsiveContainer width="100%" height={128}>
+              <BarChart data={incomeExpense} margin={{ top: 4, right: 4, left: -24, bottom: 0 }} barCategoryGap="30%">
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--paper-edge)" vertical={false} />
+                <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--ink-2)' }} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: 'var(--ink-2)' }} tickLine={false} axisLine={false}
+                  tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
+                <Tooltip
+                  contentStyle={{ fontSize: 11, border: '1px solid var(--paper-edge)', background: 'var(--surface)' }}
+                  formatter={(v: number, name: string) => [`R ${v.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, name === 'income' ? 'Income' : 'Expense']}
+                />
+                <Bar dataKey="income" fill="var(--positive)" radius={[2, 2, 0, 0]} />
+                <Bar dataKey="expense" fill="var(--accent)" radius={[2, 2, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 

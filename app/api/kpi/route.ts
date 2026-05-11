@@ -50,10 +50,20 @@ export async function GET() {
     bal[acc.code] = acc.normal_balance === 'debit' ? d - c : c - d
   }
 
+  // Income accounts (4xxx) and expense accounts (5xxx-8xxx) for profit
+  const incomeAccounts = accounts.filter(a => a.code.startsWith('4'))
+  const expenseAccounts = accounts.filter(a => a.code.startsWith('5') || a.code.startsWith('6') || a.code.startsWith('7') || a.code.startsWith('8'))
+
+  const income  = incomeAccounts.reduce((s, a) => s + (bal[a.code] ?? 0), 0)
+  const expense = expenseAccounts.reduce((s, a) => s + (bal[a.code] ?? 0), 0)
+
   return NextResponse.json({
-    cash: ['1000', '1010', '1020'].reduce((s, c) => s + (bal[c] ?? 0), 0),
-    ar:  bal['1100'] ?? 0,
-    ap:  bal['2000'] ?? 0,
-    vat: bal['2100'] ?? 0,
+    cash:    ['1000', '1010', '1020'].reduce((s, c) => s + (bal[c] ?? 0), 0),
+    ar:      bal['1100'] ?? 0,
+    ap:      bal['2000'] ?? 0,
+    vat:     bal['2100'] ?? 0,
+    income,
+    expense,
+    profit:  income - expense,
   })
 }
