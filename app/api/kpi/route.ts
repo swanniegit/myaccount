@@ -4,66 +4,48 @@ import { createServerClient } from '@/lib/supabase-server'
 export async function GET() {
   const supabase = createServerClient()
 
-  // Accounts table is small — fetch in one shot
-  const { data: accounts, error: acctErr } = await supabase
-    .from('acct_accounts')
-    .select('id, code, normal_balance')
+  // SA financial year starts 1 March
+  const now = new Date()
+  const fyYear = now.getMonth() >= 2 ? now.getFullYear() : now.getFullYear() - 1
+  const fyStart = `${fyYear}-03-01`
 
-  if (acctErr || !accounts) {
-    return NextResponse.json({ error: acctErr?.message ?? 'no accounts' }, { status: 500 })
-  }
+  // Cash: sum of active bank account balances (real bank data, not journal lines)
+  const { data: bankAccounts } = await supabase
+    .from('acct_bank_accounts')
+    .select('balance')
+    .eq('is_active', true)
+  const cash = bankAccounts?.reduce((s, b) => s + Number(b.balance), 0) ?? 0
 
-  // Journal lines can exceed PostgREST's default 1000-row page limit.
-  // Fetch in 1000-row batches until exhausted.
-  const allLines: { account_id: string; debit: number; credit: number }[] = []
-  const BATCH = 1000
-  let offset = 0
-
+  // AR: sum of all outstanding invoices (sent + overdue), paginated
+  let ar = 0, arOffset = 0
   while (true) {
-    const { data: batch, error: batchErr } = await supabase
-      .from('acct_journal_lines')
-      .select('account_id, debit, credit')
-      .range(offset, offset + BATCH - 1)
-
-    if (batchErr) {
-      return NextResponse.json({ error: batchErr.message }, { status: 500 })
-    }
-    if (!batch || batch.length === 0) break
-    allLines.push(...batch)
-    if (batch.length < BATCH) break
-    offset += BATCH
+    const { data } = await supabase
+      .from('acct_invoices')
+      .select('total')
+      .in('status', ['sent', 'overdue'])
+      .range(arOffset, arOffset + 999)
+    if (!data || data.length === 0) break
+    ar += data.reduce((s, i) => s + Number(i.total), 0)
+    if (data.length < 1000) break
+    arOffset += 1000
   }
 
-  // Aggregate debit/credit sums per account
-  const dr: Record<string, number> = {}
-  const cr: Record<string, number> = {}
-  for (const line of allLines) {
-    dr[line.account_id] = (dr[line.account_id] ?? 0) + Number(line.debit)
-    cr[line.account_id] = (cr[line.account_id] ?? 0) + Number(line.credit)
+  // VAT: sum of vat_amount on all invoices in current FY
+  let vat = 0, vatOffset = 0
+  while (true) {
+    const { data } = await supabase
+      .from('acct_invoices')
+      .select('vat_amount')
+      .gte('date', fyStart)
+      .range(vatOffset, vatOffset + 999)
+    if (!data || data.length === 0) break
+    vat += data.reduce((s, i) => s + Number(i.vat_amount), 0)
+    if (data.length < 1000) break
+    vatOffset += 1000
   }
 
-  // Compute signed balance (positive = healthy)
-  const bal: Record<string, number> = {}
-  for (const acc of accounts) {
-    const d = dr[acc.id] ?? 0
-    const c = cr[acc.id] ?? 0
-    bal[acc.code] = acc.normal_balance === 'debit' ? d - c : c - d
-  }
+  // AP: no bills imported yet
+  const ap = 0
 
-  // Income accounts (4xxx) and expense accounts (5xxx-8xxx) for profit
-  const incomeAccounts = accounts.filter(a => a.code.startsWith('4'))
-  const expenseAccounts = accounts.filter(a => a.code.startsWith('5') || a.code.startsWith('6') || a.code.startsWith('7') || a.code.startsWith('8'))
-
-  const income  = incomeAccounts.reduce((s, a) => s + (bal[a.code] ?? 0), 0)
-  const expense = expenseAccounts.reduce((s, a) => s + (bal[a.code] ?? 0), 0)
-
-  return NextResponse.json({
-    cash:    ['1000', '1010', '1020'].reduce((s, c) => s + (bal[c] ?? 0), 0),
-    ar:      bal['1100'] ?? 0,
-    ap:      bal['2000'] ?? 0,
-    vat:     bal['2100'] ?? 0,
-    income,
-    expense,
-    profit:  income - expense,
-  })
+  return NextResponse.json({ cash, ar, ap, vat, income: 0, expense: 0, profit: 0 })
 }
