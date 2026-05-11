@@ -6,12 +6,14 @@ import { formatMoney, formatDate } from '@/lib/utils'
 import type { Invoice } from '@/lib/types'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
+import MonthPicker, { currentMonth, monthRange, type MonthValue } from '@/components/ui/MonthPicker'
 
 const STATUS_TABS = ['All', 'Draft', 'Sent', 'Paid', 'Overdue']
 
 export default function SalesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [filter, setFilter] = useState('All')
+  const [period, setPeriod] = useState<MonthValue>(currentMonth)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -25,13 +27,18 @@ export default function SalesPage() {
       })
   }, [])
 
-  const displayed = filter === 'All' ? invoices : invoices.filter(i => i.status === filter.toLowerCase())
+  const { start, end } = monthRange(period)
+  const periodInvoices = invoices.filter(inv => inv.date && inv.date >= start && inv.date < end)
 
-  const outstanding = invoices.filter(i => ['sent', 'overdue'].includes(i.status)).reduce((s, i) => s + Number(i.total), 0)
-  const overdue = invoices.filter(i => i.status === 'overdue').reduce((s, i) => s + Number(i.total), 0)
-  const paid30d = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + Number(i.total), 0)
+  const displayed = filter === 'All'
+    ? periodInvoices
+    : periodInvoices.filter(i => i.status === filter.toLowerCase())
 
-  const countOf = (s: string) => invoices.filter(i => i.status === s.toLowerCase()).length
+  const outstanding = periodInvoices.filter(i => ['sent', 'overdue'].includes(i.status)).reduce((s, i) => s + Number(i.total), 0)
+  const overdue    = periodInvoices.filter(i => i.status === 'overdue').reduce((s, i) => s + Number(i.total), 0)
+  const paid       = periodInvoices.filter(i => i.status === 'paid').reduce((s, i) => s + Number(i.total), 0)
+
+  const countOf = (s: string) => periodInvoices.filter(i => i.status === s.toLowerCase()).length
 
   return (
     <div className="p-5 max-w-5xl">
@@ -39,11 +46,12 @@ export default function SalesPage() {
         <div>
           <h1 className="text-xl font-semibold">Sales · Invoices</h1>
           <p className="text-xs mt-0.5" style={{ color: 'var(--ink-2)' }}>
-            List → status · {invoices.filter(i => i.status === 'overdue').length} overdue ·{' '}
-            {invoices.filter(i => i.status === 'draft').length} draft
+            {periodInvoices.filter(i => i.status === 'overdue').length} overdue ·{' '}
+            {periodInvoices.filter(i => i.status === 'draft').length} draft
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          <MonthPicker value={period} onChange={p => { setPeriod(p); setFilter('All') }} />
           <Button variant="secondary" size="sm">⌘ Quote</Button>
           <Button size="sm" as={Link} href="/sales/new">+ New invoice</Button>
         </div>
@@ -52,7 +60,7 @@ export default function SalesPage() {
       {/* Status filter tabs */}
       <div className="flex gap-1.5 mb-4">
         {STATUS_TABS.map(tab => {
-          const count = tab === 'All' ? invoices.length : countOf(tab)
+          const count = tab === 'All' ? periodInvoices.length : countOf(tab)
           return (
             <button
               key={tab}
@@ -72,9 +80,9 @@ export default function SalesPage() {
 
       {/* KPI cards */}
       <div className="grid grid-cols-4 gap-3 mb-4">
-        <SummaryCard label="Outstanding" value={outstanding} sub={`${invoices.filter(i => ['sent','overdue'].includes(i.status)).length} invoices`} />
+        <SummaryCard label="Outstanding" value={outstanding} sub={`${periodInvoices.filter(i => ['sent','overdue'].includes(i.status)).length} invoices`} />
         <SummaryCard label="Overdue" value={overdue} sub={`${countOf('overdue')} invoices`} accent />
-        <SummaryCard label="Paid (30d)" value={paid30d} sub={`${countOf('paid')} invoices`} positive />
+        <SummaryCard label="Paid" value={paid} sub={`${countOf('paid')} invoices`} positive />
         <div className="rounded-lg p-3" style={{ background: 'var(--surface)', border: '1px solid var(--paper-edge)' }}>
           <div className="text-xs mb-1" style={{ color: 'var(--ink-2)' }}>Avg days to pay</div>
           <div className="font-mono text-xl font-bold">27d</div>
@@ -136,7 +144,7 @@ export default function SalesPage() {
             {!loading && displayed.length === 0 && (
               <tr>
                 <td colSpan={8} className="px-3 py-8 text-center" style={{ color: 'var(--muted)' }}>
-                  No invoices · <Link href="/sales/new" style={{ color: 'var(--accent)' }}>create one</Link>
+                  No invoices this period · <Link href="/sales/new" style={{ color: 'var(--accent)' }}>create one</Link>
                 </td>
               </tr>
             )}

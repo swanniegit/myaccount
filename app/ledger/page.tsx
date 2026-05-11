@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { formatMoney } from '@/lib/utils'
-import type { Account, JournalLine } from '@/lib/types'
+import MonthPicker, { currentMonth, monthRange, type MonthValue } from '@/components/ui/MonthPicker'
 
 interface AccountRow {
   code: string
@@ -30,44 +30,14 @@ export default function LedgerPage() {
   const [selected, setSelected] = useState<AccountRow | null>(null)
   const [tLines, setTLines] = useState<TLine[]>([])
   const [loading, setLoading] = useState(true)
+  const [period, setPeriod] = useState<MonthValue>(currentMonth)
+  const [entryIds, setEntryIds] = useState<string[]>([])
 
   useEffect(() => {
-    async function load() {
-      const { data: accounts } = await supabase
-        .from('acct_accounts')
-        .select('*')
-        .eq('is_active', true)
-        .order('code')
-
-      const { data: lines } = await supabase
-        .from('acct_journal_lines')
-        .select('account_id, debit, credit')
-
-      if (!accounts || !lines) return
-
-      const result: AccountRow[] = accounts.map(acc => {
-        const accLines = lines.filter(l => l.account_id === acc.id)
-        const dr = accLines.reduce((s, l) => s + Number(l.debit), 0)
-        const cr = accLines.reduce((s, l) => s + Number(l.credit), 0)
-        const bal = acc.normal_balance === 'debit' ? dr - cr : cr - dr
-        return {
-          id: acc.id,
-          code: acc.code,
-          name: acc.name,
-          type: acc.type,
-          open: 0,
-          dr,
-          cr,
-          close: bal,
-        }
-      })
-
-      setRows(result)
-      setFiltered(result)
-      setLoading(false)
-    }
+    setSelected(null)
+    setTLines([])
     load()
-  }, [])
+  }, [period])
 
   useEffect(() => {
     let r = rows
@@ -75,18 +45,57 @@ export default function LedgerPage() {
       const q = search.toLowerCase()
       r = r.filter(x => x.name.toLowerCase().includes(q) || x.code.includes(q))
     }
-    if (typeFilter !== 'all') {
-      r = r.filter(x => x.type === typeFilter)
-    }
+    if (typeFilter !== 'all') r = r.filter(x => x.type === typeFilter)
     setFiltered(r)
   }, [search, typeFilter, rows])
 
+  async function load() {
+    setLoading(true)
+    const { start, end } = monthRange(period)
+
+    const [{ data: accounts }, { data: entries }] = await Promise.all([
+      supabase.from('acct_accounts').select('*').eq('is_active', true).order('code'),
+      supabase.from('acct_journal_entries').select('id').gte('date', start).lt('date', end),
+    ])
+
+    if (!accounts) { setLoading(false); return }
+
+    const ids = entries?.map(e => e.id) ?? []
+    setEntryIds(ids)
+
+    let linesData: { account_id: string; debit: number; credit: number }[] = []
+    if (ids.length > 0) {
+      const { data: lines } = await supabase
+        .from('acct_journal_lines')
+        .select('account_id, debit, credit')
+        .in('entry_id', ids)
+      linesData = lines ?? []
+    }
+
+    const result: AccountRow[] = accounts.map(acc => {
+      const accLines = linesData.filter(l => l.account_id === acc.id)
+      const dr = accLines.reduce((s, l) => s + Number(l.debit), 0)
+      const cr = accLines.reduce((s, l) => s + Number(l.credit), 0)
+      const bal = acc.normal_balance === 'debit' ? dr - cr : cr - dr
+      return { id: acc.id, code: acc.code, name: acc.name, type: acc.type, open: 0, dr, cr, close: bal }
+    })
+
+    setRows(result)
+    setFiltered(result)
+    setLoading(false)
+  }
+
   async function selectAccount(row: AccountRow) {
     setSelected(row)
+    if (entryIds.length === 0) {
+      setTLines([])
+      return
+    }
     const { data } = await supabase
       .from('acct_journal_lines')
       .select('debit, credit, description, created_at, acct_journal_entries(date, description)')
       .eq('account_id', row.id)
+      .in('entry_id', entryIds)
       .order('created_at', { ascending: true })
 
     if (data) {
@@ -104,24 +113,17 @@ export default function LedgerPage() {
   const tDr = tLines.reduce((s, l) => s + l.dr, 0)
   const tCr = tLines.reduce((s, l) => s + l.cr, 0)
   const tBal = selected
-    ? selected.type === 'asset' || selected.type === 'expense'
-      ? tDr - tCr
-      : tCr - tDr
+    ? selected.type === 'asset' || selected.type === 'expense' ? tDr - tCr : tCr - tDr
     : 0
-
-  const movement = tBal
-  const vsLast = 0
 
   return (
     <div className="flex h-full" style={{ minHeight: 0 }}>
-      {/* Left: table */}
       <div className="flex-1 p-5 overflow-auto">
         <h1 className="text-xl font-semibold mb-0.5">T-Account Ledger</h1>
         <p className="text-xs mb-4" style={{ color: 'var(--ink-2)' }}>
           Table default · click any row → T peek panel
         </p>
 
-        {/* Filters */}
         <div className="flex gap-2 mb-3">
           <div
             className="flex items-center gap-2 px-3 py-1.5 rounded"
@@ -149,12 +151,7 @@ export default function LedgerPage() {
             <option value="revenue">revenue</option>
             <option value="expense">expense</option>
           </select>
-          <div
-            className="text-xs px-2 py-1.5 rounded"
-            style={{ border: '1px solid var(--paper-edge)', background: 'var(--surface)', color: 'var(--ink-2)' }}
-          >
-            Mar 2026
-          </div>
+          <MonthPicker value={period} onChange={setPeriod} />
           <button
             className="text-xs px-3 py-1.5 rounded ml-auto"
             style={{ background: 'var(--surface)', border: '1px solid var(--paper-edge)', color: 'var(--ink-2)' }}
@@ -163,7 +160,6 @@ export default function LedgerPage() {
           </button>
         </div>
 
-        {/* Table */}
         <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--paper-edge)' }}>
           <table className="w-full text-xs">
             <thead>
@@ -226,55 +222,35 @@ export default function LedgerPage() {
         </div>
       </div>
 
-      {/* Right: T peek panel */}
       {selected && (
-        <div
-          className="w-64 shrink-0 border-l p-4 overflow-auto"
-          style={{ borderColor: 'var(--paper-edge)', background: 'var(--surface)' }}
-        >
+        <div className="w-64 shrink-0 border-l p-4 overflow-auto" style={{ borderColor: 'var(--paper-edge)', background: 'var(--surface)' }}>
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-semibold">{selected.code} · {selected.name}</span>
-            <button
-              className="text-xs"
-              style={{ color: 'var(--accent)' }}
-            >
-              open full ↗
-            </button>
+            <button className="text-xs" style={{ color: 'var(--accent)' }}>open full ↗</button>
           </div>
 
-          {/* T-Account */}
           <div className="rounded overflow-hidden mb-3" style={{ border: '1.5px solid var(--ink)' }}>
             <div className="flex" style={{ minHeight: 80 }}>
-              {/* DR */}
               <div className="flex-1 p-2 border-r" style={{ borderColor: 'var(--ink)' }}>
                 <div className="text-2xs font-medium mb-1" style={{ color: 'var(--ink-2)' }}>DR</div>
                 {tLines.filter(l => l.dr > 0).map((l, i) => (
                   <div key={i} className="mb-1">
-                    <div className="text-2xs" style={{ color: 'var(--muted)', fontSize: 10 }}>
-                      {l.date} {l.label.slice(0, 12)}
-                    </div>
+                    <div style={{ color: 'var(--muted)', fontSize: 10 }}>{l.date} {l.label.slice(0, 12)}</div>
                     <div className="font-mono text-2xs">{l.dr.toLocaleString('en-ZA', { minimumFractionDigits: 0 })}</div>
                   </div>
                 ))}
               </div>
-              {/* CR */}
               <div className="flex-1 p-2">
                 <div className="text-2xs font-medium mb-1" style={{ color: 'var(--ink-2)' }}>CR</div>
                 {tLines.filter(l => l.cr > 0).map((l, i) => (
                   <div key={i} className="mb-1">
-                    <div className="text-2xs" style={{ color: 'var(--muted)', fontSize: 10 }}>
-                      {l.date} {l.label.slice(0, 12)}
-                    </div>
+                    <div style={{ color: 'var(--muted)', fontSize: 10 }}>{l.date} {l.label.slice(0, 12)}</div>
                     <div className="font-mono text-2xs">{l.cr.toLocaleString('en-ZA', { minimumFractionDigits: 0 })}</div>
                   </div>
                 ))}
               </div>
             </div>
-            {/* Balance */}
-            <div
-              className="px-2 py-1.5 flex justify-between"
-              style={{ borderTop: '1px solid var(--ink)', background: 'var(--paper)' }}
-            >
+            <div className="px-2 py-1.5 flex justify-between" style={{ borderTop: '1px solid var(--ink)', background: 'var(--paper)' }}>
               <span className="text-2xs font-medium">Bal.</span>
               <span className="font-mono text-xs font-bold">
                 {formatMoney(Math.abs(tBal))} {tBal >= 0 ? 'Dr' : 'Cr'}
@@ -282,17 +258,14 @@ export default function LedgerPage() {
             </div>
           </div>
 
-          {/* Stats */}
           <div className="grid grid-cols-2 gap-2 mb-3">
             <div className="rounded p-2" style={{ border: '1px solid var(--paper-edge)' }}>
               <div className="text-2xs" style={{ color: 'var(--ink-2)' }}>Movement</div>
-              <div className="font-mono text-xs font-semibold">{formatMoney(movement)}</div>
+              <div className="font-mono text-xs font-semibold">{formatMoney(tBal)}</div>
             </div>
             <div className="rounded p-2" style={{ border: '1px solid var(--paper-edge)', background: 'var(--accent-soft)' }}>
               <div className="text-2xs" style={{ color: 'var(--ink-2)' }}>vs last period</div>
-              <div className="font-mono text-xs font-semibold" style={{ color: 'var(--accent)' }}>
-                {vsLast >= 0 ? '+' : ''}{formatMoney(vsLast)}
-              </div>
+              <div className="font-mono text-xs font-semibold" style={{ color: 'var(--accent)' }}>+R 0</div>
             </div>
           </div>
 
