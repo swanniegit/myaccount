@@ -1,11 +1,9 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createAuthClient } from '@/lib/supabase-auth'
 
 export default function LoginPage() {
   const router = useRouter()
-  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -15,11 +13,14 @@ export default function LoginPage() {
     setLoading(true)
     setError(null)
 
-    const supabase = createAuthClient()
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    })
 
-    if (error) {
-      setError('Invalid email or password.')
+    if (!res.ok) {
+      setError('Incorrect password.')
       setLoading(false)
       return
     }
@@ -41,31 +42,13 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs mb-1" style={{ color: 'var(--ink-2)' }}>Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-              autoFocus
-              className="w-full border rounded px-3 py-2"
-              style={{
-                borderColor: 'var(--paper-edge)',
-                background: 'var(--paper)',
-                color: 'var(--ink)',
-                outline: 'none',
-              }}
-              placeholder="you@example.com"
-            />
-          </div>
-
-          <div>
             <label className="block text-xs mb-1" style={{ color: 'var(--ink-2)' }}>Password</label>
             <input
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
+              autoFocus
               className="w-full border rounded px-3 py-2"
               style={{
                 borderColor: 'var(--paper-edge)',

@@ -1,8 +1,6 @@
 'use client'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
-import { createAuthClient } from '@/lib/supabase-auth'
 
 const nav = [
   { href: '/dashboard', label: 'Home' },
@@ -18,14 +16,6 @@ const nav = [
 export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
-  const [email, setEmail] = useState<string | null>(null)
-
-  useEffect(() => {
-    const supabase = createAuthClient()
-    supabase.auth.getUser().then(({ data }) => {
-      setEmail(data.user?.email ?? null)
-    })
-  }, [])
 
   if (pathname.startsWith('/auth')) return null
 
@@ -35,8 +25,7 @@ export default function Sidebar() {
   }
 
   async function handleSignOut() {
-    const supabase = createAuthClient()
-    await supabase.auth.signOut()
+    await fetch('/api/auth/logout', { method: 'POST' })
     router.push('/auth/login')
   }
 
@@ -70,15 +59,6 @@ export default function Sidebar() {
         })}
       </nav>
       <div className="border-t px-4 py-3" style={{ borderColor: 'var(--paper-edge)' }}>
-        {email && (
-          <div
-            className="text-xs truncate mb-2"
-            style={{ color: 'var(--muted)' }}
-            title={email}
-          >
-            {email}
-          </div>
-        )}
         <button
           onClick={handleSignOut}
           className="text-xs"
