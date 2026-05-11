@@ -69,7 +69,7 @@ export async function GET(request: Request) {
       if (!(key in bucketIn)) continue
       const acc = accById[l.account_id]
       if (!acc) continue
-      if (acc.type === 'income')  bucketIn[key]  = (bucketIn[key]  ?? 0) + (acc.normal_balance === 'credit' ? l.credit - l.debit : l.debit - l.credit)
+      if (acc.type === 'revenue') bucketIn[key]  = (bucketIn[key]  ?? 0) + (acc.normal_balance === 'credit' ? l.credit - l.debit : l.debit - l.credit)
       if (acc.type === 'expense') bucketOut[key] = (bucketOut[key] ?? 0) + (acc.normal_balance === 'debit'  ? l.debit - l.credit  : l.credit - l.debit)
     }
   } else {
@@ -86,7 +86,7 @@ export async function GET(request: Request) {
       if (day < cfStartStr || day >= cfEndStr) continue
       const acc = accById[l.account_id]
       if (!acc) continue
-      if (acc.type === 'income')  bucketIn[day]  = (bucketIn[day]  ?? 0) + (acc.normal_balance === 'credit' ? l.credit - l.debit : l.debit - l.credit)
+      if (acc.type === 'revenue') bucketIn[day]  = (bucketIn[day]  ?? 0) + (acc.normal_balance === 'credit' ? l.credit - l.debit : l.debit - l.credit)
       if (acc.type === 'expense') bucketOut[day] = (bucketOut[day] ?? 0) + (acc.normal_balance === 'debit'  ? l.debit - l.credit  : l.credit - l.debit)
     }
   }
@@ -118,7 +118,7 @@ export async function GET(request: Request) {
     if (month < ieCutoff || !(month in monthlyIncome)) continue
     const acc = accById[l.account_id]
     if (!acc) continue
-    if (acc.type === 'income')  monthlyIncome[month]  += acc.normal_balance === 'credit' ? l.credit - l.debit : l.debit - l.credit
+    if (acc.type === 'revenue') monthlyIncome[month]  += acc.normal_balance === 'credit' ? l.credit - l.debit : l.debit - l.credit
     if (acc.type === 'expense') monthlyExpense[month] += acc.normal_balance === 'debit'  ? l.debit - l.credit : l.credit - l.debit
   }
 
