@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
 
-export async function GET() {
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url)
+  const periodStart = searchParams.get('start')   // e.g. '2026-03-01'
+  const periodEnd   = searchParams.get('end')     // e.g. '2026-06-01' (exclusive)
+  const monthly     = searchParams.get('monthly') === '1' // aggregate by month instead of day
+
   const supabase = createServerClient()
 
-  // Account metadata
   const { data: accounts } = await supabase
     .from('acct_accounts')
     .select('id, code, type, normal_balance')
@@ -14,7 +18,7 @@ export async function GET() {
   const accById: Record<string, { code: string; type: string; normal_balance: string }> = {}
   for (const a of accounts) accById[a.id] = a
 
-  // All journal lines with their entry date
+  // Fetch all journal lines with their entry date
   const allLines: { account_id: string; debit: number; credit: number; date: string }[] = []
   const BATCH = 1000
   let offset = 0
@@ -38,84 +42,89 @@ export async function GET() {
     offset += BATCH
   }
 
-  // ── Cash flow: last 30 days ──────────────────────────────────────────────
-  // "money in" = credits to income accounts (4xxx) on that day
-  // "money out" = debits to expense accounts (5xxx, 6xxx) on that day
-  const today = new Date()
-  const cutoff = new Date(today)
-  cutoff.setDate(cutoff.getDate() - 29)
-  const cutoffStr = cutoff.toISOString().slice(0, 10)
+  // ── Cash flow ────────────────────────────────────────────────────────────
+  const cfStart = periodStart ? new Date(periodStart) : (() => { const d = new Date(); d.setDate(d.getDate() - 29); return d })()
+  const cfEnd   = periodEnd   ? new Date(periodEnd)   : new Date(Date.now() + 86400000)
 
-  const dailyIn: Record<string, number> = {}
-  const dailyOut: Record<string, number> = {}
+  const cfStartStr = cfStart.toISOString().slice(0, 10)
+  const cfEndStr   = cfEnd.toISOString().slice(0, 10)
 
-  for (let i = 0; i < 30; i++) {
-    const d = new Date(cutoff)
-    d.setDate(d.getDate() + i)
-    const key = d.toISOString().slice(0, 10)
-    dailyIn[key] = 0
-    dailyOut[key] = 0
-  }
+  const bucketIn:  Record<string, number> = {}
+  const bucketOut: Record<string, number> = {}
 
-  for (const l of allLines) {
-    if (l.date < cutoffStr) continue
-    const acc = accById[l.account_id]
-    if (!acc) continue
-    const day = l.date.slice(0, 10)
-    if (acc.type === 'income') {
-      dailyIn[day] = (dailyIn[day] ?? 0) + (acc.normal_balance === 'credit' ? l.credit - l.debit : l.debit - l.credit)
-    } else if (acc.type === 'expense') {
-      dailyOut[day] = (dailyOut[day] ?? 0) + (acc.normal_balance === 'debit' ? l.debit - l.credit : l.credit - l.debit)
+  if (monthly) {
+    // Pre-fill months
+    const cur = new Date(cfStart)
+    cur.setDate(1)
+    while (cur.toISOString().slice(0, 10) < cfEndStr) {
+      const key = cur.toISOString().slice(0, 7)
+      bucketIn[key]  = 0
+      bucketOut[key] = 0
+      cur.setMonth(cur.getMonth() + 1)
+    }
+    for (const l of allLines) {
+      const day = l.date.slice(0, 10)
+      if (day < cfStartStr || day >= cfEndStr) continue
+      const key = day.slice(0, 7)
+      if (!(key in bucketIn)) continue
+      const acc = accById[l.account_id]
+      if (!acc) continue
+      if (acc.type === 'income')  bucketIn[key]  = (bucketIn[key]  ?? 0) + (acc.normal_balance === 'credit' ? l.credit - l.debit : l.debit - l.credit)
+      if (acc.type === 'expense') bucketOut[key] = (bucketOut[key] ?? 0) + (acc.normal_balance === 'debit'  ? l.debit - l.credit  : l.credit - l.debit)
+    }
+  } else {
+    // Pre-fill days
+    const cur = new Date(cfStart)
+    while (cur.toISOString().slice(0, 10) < cfEndStr) {
+      const key = cur.toISOString().slice(0, 10)
+      bucketIn[key]  = 0
+      bucketOut[key] = 0
+      cur.setDate(cur.getDate() + 1)
+    }
+    for (const l of allLines) {
+      const day = l.date.slice(0, 10)
+      if (day < cfStartStr || day >= cfEndStr) continue
+      const acc = accById[l.account_id]
+      if (!acc) continue
+      if (acc.type === 'income')  bucketIn[day]  = (bucketIn[day]  ?? 0) + (acc.normal_balance === 'credit' ? l.credit - l.debit : l.debit - l.credit)
+      if (acc.type === 'expense') bucketOut[day] = (bucketOut[day] ?? 0) + (acc.normal_balance === 'debit'  ? l.debit - l.credit  : l.credit - l.debit)
     }
   }
 
-  const cashFlow = Object.keys(dailyIn)
+  const cashFlow = Object.keys(bucketIn)
     .sort()
-    .map(d => ({
-      date: d.slice(5),  // MM-DD
-      in: Math.max(0, dailyIn[d] ?? 0),
-      out: Math.max(0, dailyOut[d] ?? 0),
-    }))
+    .map(k => ({ date: monthly ? k.slice(5) : k.slice(5), in: Math.max(0, bucketIn[k] ?? 0), out: Math.max(0, bucketOut[k] ?? 0) }))
 
-  // ── Income vs expense: last 6 months ────────────────────────────────────
-  const monthlyIncome: Record<string, number> = {}
+  // ── Income vs expense: 6 months ending at selected month ─────────────────
+  const ieAnchor = periodStart ? new Date(periodStart) : (() => { const d = new Date(); d.setDate(1); return d })()
+  const ieStart  = new Date(ieAnchor)
+  ieStart.setMonth(ieStart.getMonth() - 5)
+
+  const monthlyIncome:  Record<string, number> = {}
   const monthlyExpense: Record<string, number> = {}
 
-  const sixMonthsAgo = new Date(today)
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5)
-  sixMonthsAgo.setDate(1)
-  const sixCutoff = sixMonthsAgo.toISOString().slice(0, 10)
-
-  // Pre-fill 6 months
   for (let i = 0; i < 6; i++) {
-    const d = new Date(sixMonthsAgo)
+    const d = new Date(ieStart)
     d.setMonth(d.getMonth() + i)
     const key = d.toISOString().slice(0, 7)
-    monthlyIncome[key] = 0
+    monthlyIncome[key]  = 0
     monthlyExpense[key] = 0
   }
 
+  const ieCutoff = ieStart.toISOString().slice(0, 7)
+
   for (const l of allLines) {
-    if (l.date < sixCutoff) continue
+    const month = l.date.slice(0, 7)
+    if (month < ieCutoff || !(month in monthlyIncome)) continue
     const acc = accById[l.account_id]
     if (!acc) continue
-    const month = l.date.slice(0, 7)
-    if (!(month in monthlyIncome)) continue
-
-    if (acc.type === 'income') {
-      monthlyIncome[month] += acc.normal_balance === 'credit' ? l.credit - l.debit : l.debit - l.credit
-    } else if (acc.type === 'expense') {
-      monthlyExpense[month] += acc.normal_balance === 'debit' ? l.debit - l.credit : l.credit - l.debit
-    }
+    if (acc.type === 'income')  monthlyIncome[month]  += acc.normal_balance === 'credit' ? l.credit - l.debit : l.debit - l.credit
+    if (acc.type === 'expense') monthlyExpense[month] += acc.normal_balance === 'debit'  ? l.debit - l.credit : l.credit - l.debit
   }
 
   const incomeExpense = Object.keys(monthlyIncome)
     .sort()
-    .map(m => ({
-      month: m.slice(0, 7),
-      income: Math.max(0, monthlyIncome[m]),
-      expense: Math.max(0, monthlyExpense[m]),
-    }))
+    .map(m => ({ month: m, income: Math.max(0, monthlyIncome[m]), expense: Math.max(0, monthlyExpense[m]) }))
 
   return NextResponse.json({ cashFlow, incomeExpense })
 }
