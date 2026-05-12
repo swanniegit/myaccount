@@ -24,30 +24,40 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = createServerClient()
-  const diffs: { external_ref: string; number: string; his_total: number; acct_total: number }[] = []
 
+  // Build lookup map from input
+  const inputMap = new Map<string, number>()
   for (const item of invoices) {
-    const { data: existing } = await supabase
-      .from('acct_invoices')
-      .select('id, number, total')
-      .eq('external_ref', item.external_ref)
-      .maybeSingle()
+    inputMap.set(item.external_ref, item.total)
+  }
 
-    if (!existing) continue
+  // Single batch query for all external_refs
+  const refs = invoices.map(i => i.external_ref)
+  const { data: existing, error } = await supabase
+    .from('acct_invoices')
+    .select('id, external_ref, number, total')
+    .in('external_ref', refs)
 
-    const acctTotal = parseFloat(String(existing.total))
-    if (Math.abs(item.total - acctTotal) > 0.01) {
-      diffs.push({
-        external_ref: item.external_ref,
-        number: existing.number,
-        his_total: item.total,
-        acct_total: acctTotal,
-      })
-      await supabase
-        .from('acct_invoices')
-        .update({ total: item.total })
-        .eq('id', existing.id)
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  const diffs: { external_ref: string; number: string; his_total: number; acct_total: number }[] = []
+  const updateIds: { id: string; total: number }[] = []
+
+  for (const row of existing ?? []) {
+    const hisTotal = inputMap.get(row.external_ref)
+    if (hisTotal === undefined) continue
+    const acctTotal = parseFloat(String(row.total))
+    if (Math.abs(hisTotal - acctTotal) > 0.01) {
+      diffs.push({ external_ref: row.external_ref, number: row.number, his_total: hisTotal, acct_total: acctTotal })
+      updateIds.push({ id: row.id, total: hisTotal })
     }
+  }
+
+  // Batch update mismatches one by one (Supabase JS doesn't support bulk update with different values)
+  for (const upd of updateIds) {
+    await supabase.from('acct_invoices').update({ total: upd.total }).eq('id', upd.id)
   }
 
   return NextResponse.json({ diffs })
