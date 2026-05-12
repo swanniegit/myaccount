@@ -27,6 +27,10 @@ async function validSession(request: NextRequest): Promise<boolean> {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
+  if (pathname.startsWith('/api/push')) {
+    return NextResponse.next()
+  }
+
   if (pathname.startsWith('/auth') || pathname.startsWith('/api/auth')) {
     if (pathname.startsWith('/api/auth')) return NextResponse.next()
     if (await validSession(request)) {
