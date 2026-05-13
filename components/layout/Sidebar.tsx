@@ -6,6 +6,7 @@ const nav = [
   { href: '/dashboard', label: 'Home' },
   { href: '/sales',     label: 'Sales' },
   { href: '/purchases', label: 'Purchases' },
+  { href: '/suppliers', label: 'Suppliers' },
   { href: '/banking',   label: 'Banking' },
   { href: '/payroll',   label: 'Payroll' },
   { href: '/vat',       label: 'VAT 201' },
