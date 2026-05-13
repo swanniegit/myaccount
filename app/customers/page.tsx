@@ -75,73 +75,41 @@ export default function CustomersPage() {
     <div className="p-5 max-w-5xl">
       <div className="mb-4">
         <h1 className="text-xl font-semibold">Customers</h1>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--ink-2)' }}>
+        <p className="text-xs mt-0.5 text-ink-2">
           {customers.length} active · R {totalOutstanding.toLocaleString('en-ZA', { minimumFractionDigits: 0 })} outstanding total
         </p>
       </div>
 
-      {/* Filters + actions */}
       <div className="flex gap-2 mb-4">
-        <div
-          className="flex items-center gap-2 px-3 py-1.5 rounded"
-          style={{ border: '1px solid var(--paper-edge)', background: 'var(--surface)', width: 220 }}
-        >
-          <span className="text-xs" style={{ color: 'var(--muted)' }}>⌕</span>
+        <div className="search-box" style={{ width: 220 }}>
+          <span className="text-xs text-muted">⌕</span>
           <input
             type="text"
             placeholder="customer name"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="flex-1 outline-none bg-transparent text-xs"
           />
         </div>
-        <div
-          className="px-3 py-1.5 rounded text-xs"
-          style={{ border: '1px solid var(--paper-edge)', background: 'var(--surface)', color: 'var(--ink-2)' }}
-        >
-          active
-        </div>
+        <div className="pill" data-active={true}>active</div>
         <div className="ml-auto flex gap-2">
           <Button variant="secondary" size="sm">Statements run</Button>
           <Button size="sm" onClick={() => setShowAdd(v => !v)}>+ Customer</Button>
         </div>
       </div>
 
-      {/* Add form */}
       {showAdd && (
-        <div
-          className="rounded-lg p-4 mb-4 flex gap-3 items-end"
-          style={{ background: 'var(--surface)', border: '1px solid var(--paper-edge)' }}
-        >
-          <div>
-            <label className="text-xs block mb-1" style={{ color: 'var(--ink-2)' }}>Customer name</label>
-            <input
-              type="text"
-              value={newName}
-              onChange={e => setNewName(e.target.value)}
-              className="rounded px-2 py-1.5 text-xs"
-              style={{ border: '1px solid var(--paper-edge)', background: 'var(--paper)', width: 180 }}
-            />
+        <div className="card p-4 mb-4 flex gap-3 items-end">
+          <div style={{ width: 180 }}>
+            <label className="field-label">Customer name</label>
+            <input type="text" value={newName} onChange={e => setNewName(e.target.value)} className="field" />
           </div>
-          <div>
-            <label className="text-xs block mb-1" style={{ color: 'var(--ink-2)' }}>VAT no.</label>
-            <input
-              type="text"
-              value={newVat}
-              onChange={e => setNewVat(e.target.value)}
-              className="rounded px-2 py-1.5 text-xs"
-              style={{ border: '1px solid var(--paper-edge)', background: 'var(--paper)', width: 130 }}
-            />
+          <div style={{ width: 130 }}>
+            <label className="field-label">VAT no.</label>
+            <input type="text" value={newVat} onChange={e => setNewVat(e.target.value)} className="field" />
           </div>
-          <div>
-            <label className="text-xs block mb-1" style={{ color: 'var(--ink-2)' }}>Email</label>
-            <input
-              type="email"
-              value={newEmail}
-              onChange={e => setNewEmail(e.target.value)}
-              className="rounded px-2 py-1.5 text-xs"
-              style={{ border: '1px solid var(--paper-edge)', background: 'var(--paper)', width: 180 }}
-            />
+          <div style={{ width: 180 }}>
+            <label className="field-label">Email</label>
+            <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} className="field" />
           </div>
           <Button size="sm" onClick={addCustomer}>Save</Button>
           <Button variant="ghost" size="sm" onClick={() => setShowAdd(false)}>Cancel</Button>
@@ -153,47 +121,34 @@ export default function CustomersPage() {
         <div className="text-xs font-medium mb-2">AR aging</div>
         <div className="grid grid-cols-5 gap-2">
           {AGING_BUCKETS.map((b, i) => (
-            <div
-              key={b.label}
-              className="rounded-lg p-3"
-              style={{
-                background: i === 2 ? 'var(--accent-soft)' : 'var(--surface)',
-                border: `1px solid ${i === 2 ? 'var(--accent)' : 'var(--paper-edge)'}`,
-              }}
-            >
-              <div className="text-xs mb-1" style={{ color: i === 2 ? 'var(--accent)' : 'var(--ink-2)' }}>
-                {b.label}
-              </div>
+            <div key={b.label} className={i === 2 ? 'card-accent p-3' : 'card p-3'}>
+              <div className={`text-xs mb-1 ${i === 2 ? 'text-accent' : 'text-ink-2'}`}>{b.label}</div>
               <div className="font-mono font-bold text-sm">R —</div>
-              <div className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>—</div>
+              <div className="text-xs mt-0.5 text-muted">—</div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Customer table */}
-      <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--paper-edge)' }}>
+      <div className="card overflow-hidden">
         <table className="w-full text-xs">
-          <thead>
-            <tr style={{ background: 'var(--paper-edge)' }}>
-              {['Customer', 'VAT no.', 'Open', 'Overdue', 'YTD sales', 'Last txn'].map(h => (
-                <th
-                  key={h}
-                  className={`px-3 py-2 text-left font-medium ${['Open','Overdue','YTD sales'].includes(h) ? 'text-right' : ''}`}
-                  style={{ color: 'var(--ink-2)' }}
-                >
-                  {h}
-                </th>
-              ))}
+          <thead className="t-head">
+            <tr>
+              <th className="text-left">Customer</th>
+              <th className="text-left">VAT no.</th>
+              <th className="text-right">Open</th>
+              <th className="text-right">Overdue</th>
+              <th className="text-right">YTD sales</th>
+              <th className="text-left">Last txn</th>
             </tr>
           </thead>
           <tbody>
             {loading
               ? [...Array(5)].map((_, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid var(--paper-edge)' }}>
+                  <tr key={i} className="t-row">
                     {[...Array(6)].map((_, j) => (
-                      <td key={j} className="px-3 py-2">
-                        <div className="h-3 rounded animate-pulse" style={{ background: 'var(--paper-edge)' }} />
+                      <td key={j} className="t-cell">
+                        <div className="h-3 rounded animate-pulse bg-paper-edge" />
                       </td>
                     ))}
                   </tr>
@@ -201,28 +156,21 @@ export default function CustomersPage() {
               : filtered.map(c => (
                   <tr
                     key={c.id}
-                    className="cursor-pointer hover:opacity-80"
-                    style={{
-                      borderBottom: '1px solid var(--paper-edge)',
-                      background: c.overdue > 0 ? 'var(--accent-soft)' : 'var(--surface)',
-                    }}
+                    className="t-row cursor-pointer hover:opacity-80"
+                    style={{ background: c.overdue > 0 ? 'var(--accent-soft)' : 'var(--surface)' }}
                   >
-                    <td className="px-3 py-2 font-medium">{c.name}</td>
-                    <td className="px-3 py-2 font-mono" style={{ color: 'var(--ink-2)' }}>{c.vat_number ?? '—'}</td>
-                    <td className="px-3 py-2 font-mono text-right">{c.open > 0 ? c.open.toLocaleString('en-ZA', { minimumFractionDigits: 2 }) : '—'}</td>
-                    <td className="px-3 py-2 font-mono text-right" style={{ color: c.overdue > 0 ? 'var(--accent)' : undefined }}>
+                    <td className="t-cell font-medium">{c.name}</td>
+                    <td className="t-cell num text-ink-2">{c.vat_number ?? '—'}</td>
+                    <td className="t-cell num">{c.open > 0 ? c.open.toLocaleString('en-ZA', { minimumFractionDigits: 2 }) : '—'}</td>
+                    <td className="t-cell num" style={{ color: c.overdue > 0 ? 'var(--accent)' : undefined }}>
                       {c.overdue > 0 ? c.overdue.toLocaleString('en-ZA', { minimumFractionDigits: 2 }) : '—'}
                     </td>
-                    <td className="px-3 py-2 font-mono text-right">{c.ytd_sales > 0 ? c.ytd_sales.toLocaleString('en-ZA', { minimumFractionDigits: 2 }) : '—'}</td>
-                    <td className="px-3 py-2 font-mono" style={{ color: 'var(--ink-2)' }}>{c.last_txn || '—'}</td>
+                    <td className="t-cell num">{c.ytd_sales > 0 ? c.ytd_sales.toLocaleString('en-ZA', { minimumFractionDigits: 2 }) : '—'}</td>
+                    <td className="t-cell num text-ink-2">{c.last_txn || '—'}</td>
                   </tr>
                 ))}
             {!loading && filtered.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-3 py-8 text-center" style={{ color: 'var(--muted)' }}>
-                  No customers yet
-                </td>
-              </tr>
+              <tr className="t-empty"><td colSpan={6}>No customers yet</td></tr>
             )}
           </tbody>
         </table>

@@ -54,7 +54,6 @@ export default function RunPayrollPage() {
     })
     if (res.ok) {
       setStep(2)
-      // Reload from GET to pick up employee + lines relations
       const fresh = await fetch(`/api/payroll/run?period_id=${periodId}`)
       if (fresh.ok) {
         const ps = await fresh.json()
@@ -110,12 +109,9 @@ export default function RunPayrollPage() {
       </div>
 
       {step === 0 && (
-        <div
-          className="rounded-lg p-6 text-center"
-          style={{ border: '1px solid var(--paper-edge)', background: 'var(--surface)' }}
-        >
+        <div className="card p-6 text-center">
           <div className="text-sm font-semibold mb-2">{periodLabel} · ready to calculate</div>
-          <div className="text-xs mb-4" style={{ color: 'var(--ink-2)' }}>
+          <div className="text-xs mb-4 text-ink-2">
             All employees will have PAYE, UIF and SDL calculated using SARS 2025/26 tax tables.
           </div>
           <Button onClick={calculate} disabled={running}>
@@ -127,16 +123,13 @@ export default function RunPayrollPage() {
       {(step === 1 || step === 2) && (
         <div className="grid gap-4" style={{ gridTemplateColumns: '1.5fr 1fr' }}>
           {/* Left: payslip detail */}
-          <div
-            className="rounded-lg p-4"
-            style={{ border: '1px solid var(--paper-edge)', background: 'var(--surface)' }}
-          >
+          <div className="card p-4">
             {/* Employee nav */}
             <div className="flex justify-between items-baseline mb-3">
               <span className="font-semibold">
                 {selected?.employee?.full_name ?? '—'}
                 {selected?.employee?.job_title && (
-                  <span className="font-normal text-xs ml-2" style={{ color: 'var(--ink-2)' }}>
+                  <span className="font-normal text-xs ml-2 text-ink-2">
                     · {selected.employee.job_title}
                   </span>
                 )}
@@ -162,11 +155,11 @@ export default function RunPayrollPage() {
               <>
                 <div className="grid grid-cols-2 gap-4 mb-3">
                   <div>
-                    <div className="text-xs font-medium mb-1.5" style={{ color: 'var(--ink-2)' }}>Earnings</div>
+                    <div className="text-xs font-medium mb-1.5 text-ink-2">Earnings</div>
                     {(selected.lines ?? [])
                       .filter(l => l.type === 'earning')
                       .map(l => (
-                        <div key={l.id} className="flex justify-between py-1 border-b text-xs" style={{ borderColor: 'var(--paper-edge)' }}>
+                        <div key={l.id} className="flex justify-between py-1 border-b border-paper-edge text-xs">
                           <span>{l.description}</span>
                           <span className="font-mono">{formatMoney(Number(l.amount))}</span>
                         </div>
@@ -177,11 +170,11 @@ export default function RunPayrollPage() {
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs font-medium mb-1.5" style={{ color: 'var(--ink-2)' }}>Deductions</div>
+                    <div className="text-xs font-medium mb-1.5 text-ink-2">Deductions</div>
                     {(selected.lines ?? [])
                       .filter(l => l.type === 'deduction')
                       .map(l => (
-                        <div key={l.id} className="flex justify-between py-1 border-b text-xs" style={{ borderColor: 'var(--paper-edge)' }}>
+                        <div key={l.id} className="flex justify-between py-1 border-b border-paper-edge text-xs">
                           <span>{l.description}</span>
                           <span className="font-mono">{formatMoney(Number(l.amount))}</span>
                         </div>
@@ -193,12 +186,9 @@ export default function RunPayrollPage() {
                   </div>
                 </div>
 
-                <div
-                  className="flex justify-between items-baseline border-t pt-3"
-                  style={{ borderColor: 'var(--ink)' }}
-                >
+                <div className="flex justify-between items-baseline border-t border-ink pt-3">
                   <span className="font-semibold">Net pay</span>
-                  <span className="text-xl font-mono font-bold" style={{ color: 'var(--accent)' }}>
+                  <span className="text-xl font-mono font-bold text-accent">
                     {formatMoney(Number(selected.net))}
                   </span>
                 </div>
@@ -207,20 +197,12 @@ export default function RunPayrollPage() {
           </div>
 
           {/* Right: PAYE workings */}
-          <div
-            className="rounded-lg p-4"
-            style={{ border: '1px solid var(--accent)', background: 'var(--accent-soft)' }}
-          >
+          <div className="card-accent p-4">
             <div className="font-semibold mb-2">PAYE workings</div>
-            <div className="text-xs mb-3" style={{ color: 'var(--ink-2)' }}>SARS 2025/26 · monthly equivalent</div>
+            <div className="text-xs mb-3 text-ink-2">SARS 2025/26 · monthly equivalent</div>
             <div
-              className="font-mono text-xs p-3 rounded"
-              style={{
-                background: 'var(--surface)',
-                border: '1px solid var(--paper-edge)',
-                lineHeight: 1.8,
-                whiteSpace: 'pre-wrap',
-              }}
+              className="font-mono text-xs p-3 rounded bg-surface border border-paper-edge"
+              style={{ lineHeight: 1.8, whiteSpace: 'pre-wrap' }}
             >
               PAYE ......... {formatMoney(Number(selected?.paye ?? 0))}{'\n'}
               UIF emp ...... {formatMoney(Number(selected?.uif_employee ?? 0))}{'\n'}
@@ -232,7 +214,7 @@ export default function RunPayrollPage() {
             <div className="mt-4 border-t pt-3" style={{ borderColor: 'rgba(217,119,87,0.3)' }}>
               <div className="text-xs font-semibold mb-2">Will post to GL</div>
               {selected && (
-                <div className="font-mono text-xs" style={{ lineHeight: 1.7, color: 'var(--ink-2)' }}>
+                <div className="font-mono text-xs text-ink-2" style={{ lineHeight: 1.7 }}>
                   Dr 6500 Salaries ......... {formatMoney(Number(selected.gross))}{'\n'}
                   {'  '}Cr 2100 PAYE control . {formatMoney(Number(selected.paye))}{'\n'}
                   {'  '}Cr 2110 UIF control .. {formatMoney(Number(selected.uif_employee) + Number(selected.uif_employer))}{'\n'}
@@ -258,12 +240,9 @@ export default function RunPayrollPage() {
       )}
 
       {step === 3 && (
-        <div
-          className="mt-4 rounded-lg p-4 text-center"
-          style={{ border: '1px solid var(--accent)', background: 'var(--accent-soft)' }}
-        >
+        <div className="card-accent p-4 text-center mt-4">
           <div className="text-sm font-semibold mb-1">{periodLabel} · approved ✓</div>
-          <div className="text-xs mb-3" style={{ color: 'var(--ink-2)' }}>
+          <div className="text-xs mb-3 text-ink-2">
             Generate EFT batch file and file EMP201 with SARS eFiling.
           </div>
           <div className="flex gap-2 justify-center">
@@ -276,7 +255,7 @@ export default function RunPayrollPage() {
       )}
 
       {loading && (
-        <div className="mt-4 text-xs text-center" style={{ color: 'var(--muted)' }}>Loading payslips…</div>
+        <div className="mt-4 text-xs text-center text-muted">Loading payslips…</div>
       )}
     </div>
   )

@@ -40,9 +40,6 @@ export default function ReportsPage() {
       .finally(() => setLoading(false))
   }, [])
 
-  const vatDueDate = '25 May'
-  const isVatUrgent = true
-
   const pinned = [
     {
       label: 'Income statement',
@@ -76,11 +73,8 @@ export default function ReportsPage() {
   return (
     <div className="p-5 max-w-4xl">
       <h1 className="text-xl font-semibold mb-0.5">Reports</h1>
-      <p className="text-xs mb-6" style={{ color: 'var(--ink-2)' }}>
-        Pinned · Statements · SARS pack · Custom
-      </p>
+      <p className="text-xs mb-6 text-ink-2">Pinned · Statements · SARS pack · Custom</p>
 
-      {/* Pinned */}
       <section className="mb-6">
         <div className="text-xs font-medium mb-3">Pinned this month</div>
         <div className="grid grid-cols-3 gap-3">
@@ -88,17 +82,12 @@ export default function ReportsPage() {
             <Link
               key={item.label}
               href={item.href}
-              className="block rounded-lg p-4 hover:opacity-80 transition-opacity"
-              style={{ background: 'var(--surface)', border: '1px solid var(--paper-edge)', textDecoration: 'none' }}
+              className="block card p-4 hover:opacity-80 transition-opacity no-underline"
             >
-              <div className="text-sm font-medium mb-0.5" style={{ color: 'var(--ink)', fontStyle: 'italic' }}>
-                {item.label}
-              </div>
-              <div className="text-xs mb-3" style={{ color: item.accent }}>
-                {item.sub}
-              </div>
+              <div className="text-sm font-medium mb-0.5 italic">{item.label}</div>
+              <div className="text-xs mb-3" style={{ color: item.accent }}>{item.sub}</div>
               {loading || item.sparkData.length === 0 ? (
-                <div className="rounded animate-pulse" style={{ height: 48, background: 'var(--paper-edge)' }} />
+                <div className="h-12 rounded animate-pulse bg-paper-edge" />
               ) : (
                 <ResponsiveContainer width="100%" height={48}>
                   <LineChart data={item.sparkData} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
@@ -118,7 +107,6 @@ export default function ReportsPage() {
         </div>
       </section>
 
-      {/* Standard statements */}
       <section className="mb-6">
         <div className="text-xs font-medium mb-3">Standard statements</div>
         <div className="grid grid-cols-4 gap-2">
@@ -126,13 +114,7 @@ export default function ReportsPage() {
             <Link
               key={item.label}
               href={item.href}
-              className="block px-3 py-2.5 rounded text-xs hover:opacity-80 transition-opacity"
-              style={{
-                background: 'var(--surface)',
-                border: '1px solid var(--paper-edge)',
-                color: 'var(--ink)',
-                textDecoration: 'none',
-              }}
+              className="block card px-3 py-2.5 text-xs hover:opacity-80 transition-opacity no-underline"
             >
               {item.label} ›
             </Link>
@@ -140,33 +122,20 @@ export default function ReportsPage() {
         </div>
       </section>
 
-      {/* SARS submission packs */}
       <section>
         <div className="text-xs font-medium mb-3">SARS submission packs</div>
         <div className="grid grid-cols-3 gap-2">
-          <Link
-            href="/vat"
-            className="block px-3 py-3 rounded hover:opacity-80 transition-opacity"
-            style={{ background: 'var(--accent-soft)', border: '1px solid var(--accent)', textDecoration: 'none' }}
-          >
-            <div className="text-xs font-medium" style={{ color: 'var(--accent)' }}>VAT 201</div>
-            <div className="text-xs mt-0.5" style={{ color: 'var(--accent)' }}>due {vatDueDate}</div>
+          <Link href="/vat" className="block card-accent px-3 py-3 hover:opacity-80 transition-opacity no-underline">
+            <div className="text-xs font-medium text-accent">VAT 201</div>
+            <div className="text-xs mt-0.5 text-accent">due 25 May</div>
           </Link>
-          <Link
-            href="/reports/emp201"
-            className="block px-3 py-3 rounded hover:opacity-80 transition-opacity"
-            style={{ background: 'var(--surface)', border: '1px solid var(--paper-edge)', textDecoration: 'none' }}
-          >
-            <div className="text-xs font-medium" style={{ color: 'var(--ink)' }}>EMP 201 (PAYE/UIF)</div>
-            <div className="text-xs mt-0.5" style={{ color: 'var(--ink-2)' }}>due 7 Apr</div>
+          <Link href="/reports/emp201" className="block card px-3 py-3 hover:opacity-80 transition-opacity no-underline">
+            <div className="text-xs font-medium">EMP 201 (PAYE/UIF)</div>
+            <div className="text-xs mt-0.5 text-ink-2">due 7 Apr</div>
           </Link>
-          <Link
-            href="/reports/it14"
-            className="block px-3 py-3 rounded hover:opacity-80 transition-opacity"
-            style={{ background: 'var(--surface)', border: '1px solid var(--paper-edge)', textDecoration: 'none' }}
-          >
-            <div className="text-xs font-medium" style={{ color: 'var(--ink)' }}>IT14 / ITR14 – annual</div>
-            <div className="text-xs mt-0.5" style={{ color: 'var(--ink-2)' }}>Feb 2027</div>
+          <Link href="/reports/it14" className="block card px-3 py-3 hover:opacity-80 transition-opacity no-underline">
+            <div className="text-xs font-medium">IT14 / ITR14 – annual</div>
+            <div className="text-xs mt-0.5 text-ink-2">Feb 2027</div>
           </Link>
         </div>
       </section>

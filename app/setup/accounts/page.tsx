@@ -85,7 +85,7 @@ export default function SetupPage() {
       <div className="flex items-start justify-between mb-4">
         <div>
           <h1 className="text-xl font-semibold">Setup · Chart of Accounts</h1>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--ink-2)' }}>
+          <p className="text-xs mt-0.5 text-ink-2">
             {accounts.length} accounts · grouped by type · SA SME default
           </p>
         </div>
@@ -98,11 +98,8 @@ export default function SetupPage() {
 
       {/* Filters */}
       <div className="flex gap-2 mb-3">
-        <div
-          className="flex items-center gap-2 px-3 py-1.5 rounded"
-          style={{ border: '1px solid var(--paper-edge)', background: 'var(--surface)', width: 220 }}
-        >
-          <span className="text-xs" style={{ color: 'var(--muted)' }}>⌕</span>
+        <div className="search-box" style={{ width: 220 }}>
+          <span className="text-muted text-xs">⌕</span>
           <input
             type="text"
             placeholder="type name or code"
@@ -114,8 +111,8 @@ export default function SetupPage() {
         <select
           value={typeFilter}
           onChange={e => setTypeFilter(e.target.value)}
-          className="text-xs px-2 py-1.5 rounded"
-          style={{ border: '1px solid var(--paper-edge)', background: 'var(--surface)' }}
+          className="field"
+          style={{ width: 'auto' }}
         >
           <option value="all">all</option>
           <option value="asset">asset</option>
@@ -128,39 +125,35 @@ export default function SetupPage() {
 
       {/* Add form */}
       {showAdd && (
-        <div
-          className="rounded-lg p-4 mb-3 flex gap-3 items-end flex-wrap"
-          style={{ background: 'var(--surface)', border: '1px solid var(--paper-edge)' }}
-        >
+        <div className="card p-4 mb-3 flex gap-3 items-end flex-wrap">
           <div>
-            <label className="text-xs block mb-1" style={{ color: 'var(--ink-2)' }}>Code</label>
+            <label className="field-label">Code</label>
             <input
               type="text"
               value={newCode}
               onChange={e => setNewCode(e.target.value)}
               placeholder="e.g. 6100"
-              className="rounded px-2 py-1.5 text-xs w-20"
-              style={{ border: '1px solid var(--paper-edge)', background: 'var(--paper)' }}
+              className="field"
+              style={{ width: 80 }}
             />
           </div>
           <div>
-            <label className="text-xs block mb-1" style={{ color: 'var(--ink-2)' }}>Name</label>
+            <label className="field-label">Name</label>
             <input
               type="text"
               value={newName}
               onChange={e => setNewName(e.target.value)}
               placeholder="Account name"
-              className="rounded px-2 py-1.5 text-xs w-48"
-              style={{ border: '1px solid var(--paper-edge)', background: 'var(--paper)' }}
+              className="field"
+              style={{ width: 192 }}
             />
           </div>
           <div>
-            <label className="text-xs block mb-1" style={{ color: 'var(--ink-2)' }}>Type</label>
+            <label className="field-label">Type</label>
             <select
               value={newType}
               onChange={e => setNewType(e.target.value as AccountType)}
-              className="rounded px-2 py-1.5 text-xs"
-              style={{ border: '1px solid var(--paper-edge)', background: 'var(--paper)' }}
+              className="field"
             >
               <option value="asset">Asset</option>
               <option value="liability">Liability</option>
@@ -169,7 +162,7 @@ export default function SetupPage() {
               <option value="expense">Expense</option>
             </select>
           </div>
-          <label className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--ink-2)' }}>
+          <label className="flex items-center gap-1.5 text-xs text-ink-2">
             <input type="checkbox" checked={newVat} onChange={e => setNewVat(e.target.checked)} />
             VAT account
           </label>
@@ -179,15 +172,14 @@ export default function SetupPage() {
       )}
 
       {/* Table */}
-      <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--paper-edge)' }}>
+      <div className="card overflow-hidden">
         <table className="w-full text-xs">
-          <thead>
-            <tr style={{ background: 'var(--paper-edge)' }}>
+          <thead className="t-head">
+            <tr>
               {['Code', 'Name', 'Type', 'Tax', 'Balance', 'YTD movement', ''].map((h, i) => (
                 <th
                   key={i}
-                  className={`px-3 py-2 text-left font-medium ${h === 'Balance' || h === 'YTD movement' ? 'text-right' : ''}`}
-                  style={{ color: 'var(--ink-2)' }}
+                  className={`text-left font-medium ${h === 'Balance' || h === 'YTD movement' ? 'text-right' : ''}`}
                 >
                   {h}
                 </th>
@@ -197,37 +189,29 @@ export default function SetupPage() {
           <tbody>
             {loading
               ? [...Array(10)].map((_, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid var(--paper-edge)' }}>
+                  <tr key={i} className="t-row">
                     {[...Array(7)].map((_, j) => (
-                      <td key={j} className="px-3 py-2">
-                        <div className="h-3 rounded animate-pulse" style={{ background: 'var(--paper-edge)' }} />
+                      <td key={j} className="t-cell">
+                        <div className="h-3 rounded animate-pulse bg-paper-edge" />
                       </td>
                     ))}
                   </tr>
                 ))
               : filtered.map(acc => (
-                  <tr
-                    key={acc.id}
-                    style={{ borderBottom: '1px solid var(--paper-edge)', background: 'var(--surface)' }}
-                  >
-                    <td className="px-3 py-2 font-mono" style={{ color: 'var(--ink-2)' }}>{acc.code}</td>
-                    <td className="px-3 py-2 font-medium">{acc.name}</td>
-                    <td className="px-3 py-2">
-                      <span
-                        className="px-2 py-0.5 rounded text-xs"
-                        style={{ border: '1px solid var(--paper-edge)', color: 'var(--ink-2)', whiteSpace: 'nowrap' }}
-                      >
-                        {subBadge(acc)}
-                      </span>
+                  <tr key={acc.id} className="t-row">
+                    <td className="t-cell font-mono text-ink-2">{acc.code}</td>
+                    <td className="t-cell font-medium">{acc.name}</td>
+                    <td className="t-cell">
+                      <span className="badge">{subBadge(acc)}</span>
                     </td>
-                    <td className="px-3 py-2 text-xs" style={{ color: acc.is_vat_account ? 'var(--accent)' : 'var(--ink-2)' }}>
+                    <td className="t-cell" style={{ color: acc.is_vat_account ? 'var(--accent)' : 'var(--ink-2)' }}>
                       {acc.is_vat_account ? '15%' : '—'}
                     </td>
-                    <td className="px-3 py-2 font-mono text-right" style={{ color: 'var(--ink-2)' }}>—</td>
-                    <td className="px-3 py-2 font-mono text-right" style={{ color: 'var(--ink-2)' }}>—</td>
-                    <td className="px-3 py-2 flex gap-2">
-                      <button className="text-xs" style={{ color: 'var(--ink-2)' }}>↕</button>
-                      <button onClick={() => deleteAccount(acc.id)} className="text-xs" style={{ color: 'var(--negative)' }}>🗑</button>
+                    <td className="t-cell num text-ink-2">—</td>
+                    <td className="t-cell num text-ink-2">—</td>
+                    <td className="t-cell flex gap-2">
+                      <button className="text-xs text-ink-2">↕</button>
+                      <button onClick={() => deleteAccount(acc.id)} className="text-xs text-negative">🗑</button>
                     </td>
                   </tr>
                 ))}

@@ -1,153 +1,164 @@
 'use client'
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import { formatMoney } from '@/lib/utils'
+import type { Invoice } from '@/lib/types'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
+import MonthPicker, { currentMonth, monthRange, type MonthValue } from '@/components/ui/MonthPicker'
+import NewBillSheet from '@/components/purchases/NewBillSheet'
+import BillDetail from '@/components/purchases/BillDetail'
 
-interface Bill {
-  id: string
-  ref: string
-  supplier: string
-  due: string
-  excl: number
-  vat: number
-  total: number
-  status: 'paid' | 'approved' | 'awaiting'
+const STATUS_TABS = ['All', 'Awaiting approval', 'Approved', 'Paid']
+const TAB_STATUS: Record<string, string> = {
+  'Awaiting approval': 'draft',
+  'Approved':          'sent',
+  'Paid':              'paid',
 }
 
-const TABS = ['All', 'Awaiting approval', 'Approved', 'Paid']
-
 export default function PurchasesPage() {
-  const [activeTab, setActiveTab] = useState('All')
-  const [selected, setSelected] = useState<Bill | null>(null)
+  const [bills, setBills]         = useState<Invoice[]>([])
+  const [filter, setFilter]       = useState('All')
+  const [period, setPeriod]       = useState<MonthValue>(currentMonth())
+  const [loading, setLoading]     = useState(true)
+  const [selected, setSelected]   = useState<Invoice | null>(null)
+  const [sheetOpen, setSheetOpen] = useState(false)
 
-  const bills: Bill[] = []
-  const displayed = bills
+  const { start, end } = monthRange(period)
+
+  const load = useCallback(() => {
+    setLoading(true)
+    supabase
+      .from('acct_invoices')
+      .select('*, contact:acct_contacts(name)')
+      .eq('invoice_type', 'bill')
+      .gte('date', start)
+      .lt('date', end)
+      .order('date', { ascending: false })
+      .limit(2000)
+      .then(({ data }) => {
+        if (data) setBills(data as Invoice[])
+        setLoading(false)
+      })
+  }, [start, end])
+
+  useEffect(() => { setSelected(null); load() }, [load])
+
+  const displayed     = filter === 'All' ? bills : bills.filter(b => b.status === TAB_STATUS[filter])
+  const countOf       = (tab: string) => tab === 'All' ? bills.length : bills.filter(b => b.status === TAB_STATUS[tab]).length
+  const payable       = bills.filter(b => ['draft', 'sent'].includes(b.status))
+  const awaitingCount = bills.filter(b => b.status === 'draft').length
+
+  function handleBillUpdated(updated: Invoice) {
+    setBills(prev => prev.map(b => b.id === updated.id ? updated : b))
+    setSelected(updated)
+  }
 
   return (
     <div className="p-5 flex flex-col gap-4">
-      <div>
-        <h1 className="text-xl font-semibold">Purchases · Bills</h1>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--ink-2)' }}>What I owe · OCR-from-receipt enabled</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-xl font-semibold">Purchases · Bills</h1>
+          <p className="text-xs mt-0.5 t-secondary">
+            {awaitingCount > 0 ? `${awaitingCount} awaiting approval · ` : ''}What I owe
+          </p>
+        </div>
+        <div className="flex gap-2 items-center">
+          <MonthPicker value={period} onChange={p => { setPeriod(p); setFilter('All') }} />
+          <Button size="sm" onClick={() => setSheetOpen(true)}>+ New bill</Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <KpiCard label="Total payable"     value={payable.reduce((s,b) => s + Number(b.total), 0)} sub={`${payable.length} bills`} />
+        <KpiCard label="Awaiting approval" value={bills.filter(b => b.status === 'draft').reduce((s,b) => s + Number(b.total), 0)} sub={`${awaitingCount} bills`} accent={awaitingCount > 0} />
+        <KpiCard label="Paid this period"  value={bills.filter(b => b.status === 'paid').reduce((s,b) => s + Number(b.total), 0)} sub={`${bills.filter(b => b.status === 'paid').length} bills`} positive />
       </div>
 
       <div className="flex gap-4">
-        <div className="flex-1">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex gap-1.5">
-              {TABS.map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className="px-3 py-1 text-xs rounded-full font-medium transition-colors"
-                  style={{
-                    background: activeTab === tab ? 'var(--ink)' : 'var(--surface)',
-                    color: activeTab === tab ? '#fff' : 'var(--ink-2)',
-                    border: `1px solid ${activeTab === tab ? 'var(--ink)' : 'var(--paper-edge)'}`,
-                  }}
-                >
-                  {tab} (0)
-                </button>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <Button variant="secondary" size="sm">📎 Drop receipt</Button>
-              <Button size="sm">+ New bill</Button>
-            </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 mb-3">
+            {STATUS_TABS.map(tab => (
+              <button key={tab} className="pill" data-active={filter === tab} onClick={() => setFilter(tab)}>
+                {tab} {countOf(tab) > 0 && `(${countOf(tab)})`}
+              </button>
+            ))}
           </div>
 
-          <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--paper-edge)' }}>
-            <table className="w-full text-xs">
-              <thead>
-                <tr style={{ background: 'var(--paper-edge)' }}>
-                  {['Ref', 'Supplier', 'Due', 'Excl.', 'VAT', 'Total', 'Status'].map(h => (
-                    <th
-                      key={h}
-                      className={`px-3 py-2 font-medium text-left ${['Excl.','VAT','Total'].includes(h) ? 'text-right' : ''}`}
-                      style={{ color: 'var(--ink-2)' }}
-                    >
-                      {h}
-                    </th>
-                  ))}
+          <div className="card overflow-hidden">
+            <table className="w-full">
+              <thead className="t-head">
+                <tr>
+                  <th>Ref</th>
+                  <th>Supplier</th>
+                  <th>Date</th>
+                  <th>Due</th>
+                  <th className="num">Excl.</th>
+                  <th className="num">VAT</th>
+                  <th className="num">Total</th>
+                  <th>Status</th>
                 </tr>
               </thead>
               <tbody>
-                {displayed.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-3 py-8 text-center" style={{ color: 'var(--muted)' }}>
-                      No bills yet
-                    </td>
-                  </tr>
-                ) : displayed.map(bill => (
-                  <tr
-                    key={bill.id}
-                    onClick={() => setSelected(bill)}
-                    className="cursor-pointer"
-                    style={{
-                      borderBottom: '1px solid var(--paper-edge)',
-                      background:
-                        selected?.id === bill.id
-                          ? 'var(--accent-soft)'
-                          : bill.status === 'awaiting'
-                          ? 'rgba(217,119,87,0.05)'
-                          : 'var(--surface)',
-                    }}
-                  >
-                    <td className="px-3 py-2 font-mono" style={{ color: 'var(--accent)' }}>{bill.ref}</td>
-                    <td className="px-3 py-2">{bill.supplier}</td>
-                    <td className="px-3 py-2 font-mono" style={{ color: 'var(--ink-2)' }}>{bill.due}</td>
-                    <td className="px-3 py-2 font-mono text-right">{bill.excl.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</td>
-                    <td className="px-3 py-2 font-mono text-right" style={{ color: 'var(--ink-2)' }}>
-                      {bill.vat > 0 ? bill.vat.toLocaleString('en-ZA', { minimumFractionDigits: 2 }) : '—'}
-                    </td>
-                    <td className="px-3 py-2 font-mono text-right font-semibold">{bill.total.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</td>
-                    <td className="px-3 py-2"><Badge status={bill.status} /></td>
-                  </tr>
-                ))}
+                {loading
+                  ? [...Array(4)].map((_, i) => (
+                      <tr key={i} className="t-row">
+                        {[...Array(8)].map((_, j) => (
+                          <td key={j} className="t-cell">
+                            <div className="h-3 rounded animate-pulse bg-paper-edge" />
+                          </td>
+                        ))}
+                      </tr>
+                    ))
+                  : displayed.map(bill => (
+                      <tr
+                        key={bill.id}
+                        className="t-row t-row-clickable"
+                        data-selected={selected?.id === bill.id}
+                        data-warning={bill.status === 'draft' && selected?.id !== bill.id}
+                        onClick={() => setSelected(selected?.id === bill.id ? null : bill)}
+                      >
+                        <td className="t-cell t-cell-accent">{bill.number}</td>
+                        <td className="t-cell">{(bill as any).contact?.name ?? '—'}</td>
+                        <td className="t-cell t-secondary">
+                          {bill.date ? new Date(bill.date).toLocaleDateString('en-ZA', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—'}
+                        </td>
+                        <td className="t-cell t-secondary">
+                          {bill.due_date ? new Date(bill.due_date).toLocaleDateString('en-ZA', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—'}
+                        </td>
+                        <td className="t-cell num">{Number(bill.subtotal).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</td>
+                        <td className="t-cell num t-secondary">
+                          {Number(bill.vat_amount) > 0 ? Number(bill.vat_amount).toLocaleString('en-ZA', { minimumFractionDigits: 2 }) : '—'}
+                        </td>
+                        <td className="t-cell num font-semibold">{Number(bill.total).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</td>
+                        <td className="t-cell"><Badge status={bill.status} /></td>
+                      </tr>
+                    ))}
+                {!loading && displayed.length === 0 && (
+                  <tr className="t-empty"><td colSpan={8}>No bills this period</td></tr>
+                )}
               </tbody>
             </table>
           </div>
         </div>
 
-        {selected && (
-          <div
-            className="w-56 shrink-0 rounded-lg p-4"
-            style={{ border: '1px solid var(--paper-edge)', background: 'var(--surface)' }}
-          >
-            <div className="text-xs font-medium mb-3">{selected.ref} preview</div>
-            <div
-              className="rounded mb-3 flex items-center justify-center text-xs"
-              style={{
-                height: 90,
-                background: 'repeating-linear-gradient(45deg,var(--paper-edge) 0,var(--paper-edge) 1px,transparent 0,transparent 50%)',
-                backgroundSize: '8px 8px',
-                color: 'var(--muted)',
-                border: '1px solid var(--paper-edge)',
-              }}
-            >
-              // receipt PDF / photo
-            </div>
-
-            <div className="text-xs space-y-1 mb-3">
-              <div><span style={{ color: 'var(--ink-2)' }}>Supplier: </span><span className="font-medium">{selected.supplier}</span></div>
-              <div>
-                <span style={{ color: 'var(--ink-2)' }}>Excl: </span>
-                <span className="font-mono">R {selected.excl.toLocaleString('en-ZA', { minimumFractionDigits: 2 })} · VAT R {selected.vat.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</span>
-              </div>
-              <div>
-                <span style={{ color: 'var(--ink-2)' }}>Total: </span>
-                <span className="font-mono font-semibold">R {selected.total.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</span>
-              </div>
-            </div>
-
-            {selected.status === 'awaiting' && (
-              <div className="flex gap-2">
-                <Button variant="ghost" size="sm">Reject</Button>
-                <Button size="sm">Approve</Button>
-              </div>
-            )}
-          </div>
-        )}
+        {selected && <BillDetail bill={selected} onUpdated={handleBillUpdated} />}
       </div>
+
+      <NewBillSheet open={sheetOpen} onClose={() => setSheetOpen(false)} onCreated={load} />
+    </div>
+  )
+}
+
+function KpiCard({ label, value, sub, accent, positive }: {
+  label: string; value: number; sub: string; accent?: boolean; positive?: boolean
+}) {
+  const color = accent ? 'var(--accent)' : positive ? 'var(--positive)' : 'var(--ink)'
+  return (
+    <div className={accent ? 'card-accent kpi' : 'card kpi'}>
+      <p className="kpi-label">{label}</p>
+      <p className="kpi-value" style={{ color }}>{formatMoney(value)}</p>
+      <p className="kpi-sub">{sub}</p>
     </div>
   )
 }

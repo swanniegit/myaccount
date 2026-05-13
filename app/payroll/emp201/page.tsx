@@ -55,7 +55,7 @@ export default function EMP201Page() {
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <div className="text-xs" style={{ color: 'var(--ink-2)' }}>
+        <div className="text-xs text-ink-2">
           {data?.status === 'submitted' ? `Filed ${data.submitted_at?.slice(0, 10)}` : `Due 7 ${nextMonth}`}
         </div>
         <PeriodSelector periods={periods} value={periodId} onChange={setPeriodId} />
@@ -63,16 +63,16 @@ export default function EMP201Page() {
 
       <div className="grid gap-4" style={{ gridTemplateColumns: '1.3fr 1fr' }}>
         {/* Left: return summary */}
-        <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--paper-edge)' }}>
-          <div className="px-4 py-2.5 font-semibold text-sm" style={{ background: 'var(--paper)', borderBottom: '1px solid var(--paper-edge)' }}>
+        <div className="card overflow-hidden">
+          <div className="px-4 py-2.5 font-semibold text-sm bg-paper border-b border-paper-edge">
             EMP201 · {periodLabel} · return summary
           </div>
           <table className="w-full text-xs">
-            <thead>
-              <tr style={{ background: 'var(--paper-edge)' }}>
-                <th className="px-3 py-2 text-left font-medium w-16" style={{ color: 'var(--ink-2)' }}>Line</th>
-                <th className="px-3 py-2 text-left font-medium" style={{ color: 'var(--ink-2)' }}>Description</th>
-                <th className="px-3 py-2 text-right font-medium w-28" style={{ color: 'var(--ink-2)' }}>Amount</th>
+            <thead className="t-head">
+              <tr>
+                <th className="text-left font-medium w-16">Line</th>
+                <th className="text-left font-medium">Description</th>
+                <th className="text-right font-medium w-28">Amount</th>
               </tr>
             </thead>
             <tbody>
@@ -85,25 +85,24 @@ export default function EMP201Page() {
               ].map((r, i) => (
                 <tr
                   key={i}
-                  className="border-b"
+                  className="border-b border-paper-edge"
                   style={{
-                    borderColor: 'var(--paper-edge)',
                     fontWeight: r.tone === 'total' ? 700 : 400,
-                    background: r.tone === 'total' ? 'var(--accent-soft)' : r.tone === 'soft' ? 'var(--surface)' : 'var(--surface)',
+                    background: r.tone === 'total' ? 'var(--accent-soft)' : 'var(--surface)',
                     color: r.tone === 'soft' ? 'var(--accent)' : 'var(--ink)',
                   }}
                 >
                   <td className="px-3 py-2 font-mono">{r.line}</td>
                   <td className="px-3 py-2">{r.label}</td>
-                  <td className="px-3 py-2 font-mono text-right">{formatMoney(r.amount)}</td>
+                  <td className="px-3 py-2 num">{formatMoney(r.amount)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
 
-          <div className="px-4 py-3" style={{ borderTop: '1px solid var(--paper-edge)' }}>
+          <div className="px-4 py-3 border-t border-paper-edge">
             <div className="text-xs font-semibold mb-2">Reconciliation · payroll → EMP201</div>
-            <div className="font-mono text-xs" style={{ lineHeight: 1.8, color: 'var(--ink-2)' }}>
+            <div className="font-mono text-xs text-ink-2" style={{ lineHeight: 1.8 }}>
               Sum of payslip PAYE .......... {formatMoney(data?.paye_liability ?? 0)} ✓{'\n'}
               Sum of payslip UIF (1%×2) ... {formatMoney(data?.uif_liability ?? 0)} ✓{'\n'}
               SDL (1% × gross payroll) .... {formatMoney(data?.sdl_liability ?? 0)} ✓
@@ -112,12 +111,9 @@ export default function EMP201Page() {
         </div>
 
         {/* Right: submission */}
-        <div
-          className="rounded-lg p-4"
-          style={{ border: '1px solid var(--accent)', background: 'var(--accent-soft)' }}
-        >
+        <div className="card-accent p-4">
           <div className="font-semibold mb-1">Submission</div>
-          <div className="text-xs mb-3" style={{ color: 'var(--ink-2)' }}>
+          <div className="text-xs mb-3 text-ink-2">
             {data?.status === 'submitted'
               ? `Filed ${data.submitted_at?.slice(0, 10)} · ref ${data.payment_ref ?? '—'}`
               : 'File via SARS eFiling or download XML for manual upload.'
@@ -136,38 +132,31 @@ export default function EMP201Page() {
           )}
 
           {data?.status === 'submitted' && (
-            <div
-              className="rounded px-3 py-2 text-xs"
-              style={{ background: 'var(--surface)', border: '1px solid var(--paper-edge)' }}
-            >
+            <div className="rounded px-3 py-2 text-xs bg-surface border border-paper-edge">
               ✓ Filed
             </div>
           )}
 
           <div className="mt-4 border-t pt-3" style={{ borderColor: 'rgba(217,119,87,0.3)' }}>
             <div className="font-semibold text-xs mb-2">Payment reference</div>
-            <div
-              className="font-mono text-xs p-2 rounded"
-              style={{ background: 'var(--surface)', border: '1px solid var(--paper-edge)', lineHeight: 1.8 }}
-            >
+            <div className="font-mono text-xs p-2 rounded bg-surface border border-paper-edge" style={{ lineHeight: 1.8 }}>
               Beneficiary · SARS-PAYE{'\n'}
               Account .... 4055700729{'\n'}
               Branch ..... 632005 (Absa){'\n'}
               Reference .. {payRef2}
             </div>
-            <div className="mt-2 text-xs" style={{ color: 'var(--muted)', fontStyle: 'italic' }}>
+            <div className="mt-2 text-xs text-muted italic">
               late submission → 10% penalty + interest at SARS rate
             </div>
           </div>
 
           <div className="mt-4">
-            <label className="block text-xs mb-1" style={{ color: 'var(--ink-2)' }}>Payment reference (optional)</label>
+            <label className="field-label">Payment reference (optional)</label>
             <input
               value={payRef}
               onChange={e => setPayRef(e.target.value)}
               placeholder={payRef2}
-              className="w-full px-2.5 py-1.5 text-xs rounded border"
-              style={{ borderColor: 'var(--paper-edge)', background: 'var(--paper)' }}
+              className="field"
             />
           </div>
         </div>

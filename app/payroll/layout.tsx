@@ -18,29 +18,20 @@ export default function PayrollLayout({ children }: { children: React.ReactNode 
     <div className="p-5 max-w-5xl">
       <div className="mb-1">
         <h1 className="text-xl font-semibold">Payroll</h1>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--ink-2)' }}>
-          South African payroll · SARS 2025/26
-        </p>
+        <p className="text-xs mt-0.5 text-ink-2">South African payroll · SARS 2025/26</p>
       </div>
 
       <div className="flex gap-1.5 mb-5 mt-3 flex-wrap">
-        {TABS.map(tab => {
-          const active = pathname === tab.href
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              className="px-3 py-1 text-xs rounded-full font-medium transition-colors"
-              style={{
-                background: active ? 'var(--ink)' : 'var(--surface)',
-                color: active ? '#fff' : 'var(--ink-2)',
-                border: `1px solid ${active ? 'var(--ink)' : 'var(--paper-edge)'}`,
-              }}
-            >
-              {tab.label}
-            </Link>
-          )
-        })}
+        {TABS.map(tab => (
+          <Link
+            key={tab.href}
+            href={tab.href}
+            className="pill no-underline"
+            data-active={pathname === tab.href}
+          >
+            {tab.label}
+          </Link>
+        ))}
       </div>
 
       {children}

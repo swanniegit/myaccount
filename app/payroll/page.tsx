@@ -60,13 +60,8 @@ export default function PayrollOverview() {
   const statutory  = paye + uifTotal + sdlTotal - eti
   const approved   = payslips.filter(p => p.status === 'approved').length
 
-  const periodLabel = period
-    ? `${monthName(period.month)} ${period.year}`
-    : '—'
-
-  const emp201Due = period
-    ? `7 ${monthName(period.month === 12 ? 1 : period.month + 1)}`
-    : '—'
+  const periodLabel = period ? `${monthName(period.month)} ${period.year}` : '—'
+  const emp201Due   = period ? `7 ${monthName(period.month === 12 ? 1 : period.month + 1)}` : '—'
 
   const currentStep =
     !period || period.status === 'open' ? 1 :
@@ -77,7 +72,7 @@ export default function PayrollOverview() {
     return (
       <div className="grid grid-cols-4 gap-3">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="h-20 rounded-lg animate-pulse" style={{ background: 'var(--surface)' }} />
+          <div key={i} className="h-20 rounded-lg animate-pulse bg-surface" />
         ))}
       </div>
     )
@@ -85,39 +80,26 @@ export default function PayrollOverview() {
 
   return (
     <div>
-      {/* KPI cards */}
       <div className="grid grid-cols-4 gap-3 mb-5">
         {[
-          { label: 'Headcount',      value: String(headcount), sub: `${headcount} monthly` },
-          { label: `Gross (${periodLabel})`, value: formatMoney(gross), sub: 'total payroll' },
-          { label: 'Net pay',        value: formatMoney(net),  sub: 'after PAYE + UIF' },
+          { label: 'Headcount',      value: String(headcount), sub: `${headcount} monthly`,   highlight: false },
+          { label: `Gross (${periodLabel})`, value: formatMoney(gross), sub: 'total payroll', highlight: false },
+          { label: 'Net pay',        value: formatMoney(net),  sub: 'after PAYE + UIF',       highlight: false },
           { label: 'Statutory due',  value: formatMoney(statutory), sub: `PAYE + UIF + SDL · ${emp201Due}`, highlight: true },
         ].map((k, i) => (
-          <div
-            key={i}
-            className="rounded-lg p-3"
-            style={{
-              background: k.highlight ? 'var(--accent-soft)' : 'var(--surface)',
-              border: `1px solid ${k.highlight ? 'var(--accent)' : 'var(--paper-edge)'}`,
-            }}
-          >
-            <div className="text-xs mb-1" style={{ color: 'var(--ink-2)' }}>{k.label}</div>
-            <div className="text-lg font-semibold font-mono">{k.value}</div>
-            <div className="text-xs mt-0.5" style={{ color: 'var(--ink-2)' }}>{k.sub}</div>
+          <div key={i} className={k.highlight ? 'card-accent kpi p-3' : 'card kpi p-3'}>
+            <div className="text-xs mb-1 text-ink-2">{k.label}</div>
+            <div className="text-lg font-semibold num">{k.value}</div>
+            <div className="text-xs mt-0.5 text-ink-2">{k.sub}</div>
           </div>
         ))}
       </div>
 
       <div className="grid gap-4" style={{ gridTemplateColumns: '1.4fr 1fr' }}>
-        {/* Left: run status + statutory */}
-        <div className="rounded-lg p-4" style={{ border: '1px solid var(--paper-edge)', background: 'var(--surface)' }}>
+        <div className="card p-4">
           <div className="flex justify-between items-baseline mb-3">
             <span className="font-semibold">{periodLabel} run · status</span>
-            {period && (
-              <span className="text-xs" style={{ color: 'var(--ink-2)' }}>
-                pay date · {period.pay_date}
-              </span>
-            )}
+            {period && <span className="text-xs text-ink-2">pay date · {period.pay_date}</span>}
           </div>
 
           <div className="grid grid-cols-4 gap-2 mb-4">
@@ -128,7 +110,7 @@ export default function PayrollOverview() {
                 <Link
                   key={s.n}
                   href={s.href}
-                  className="rounded p-2 block"
+                  className="rounded p-2 block no-underline"
                   style={{
                     border: `1.5px solid ${active ? 'var(--accent)' : done ? 'var(--ink)' : 'var(--paper-edge)'}`,
                     background: active ? 'var(--accent-soft)' : 'var(--surface)',
@@ -140,7 +122,7 @@ export default function PayrollOverview() {
                   >
                     {done ? '✓' : s.n}. {s.title}
                   </div>
-                  <div className="text-xs" style={{ color: 'var(--ink-2)' }}>
+                  <div className="text-xs text-ink-2">
                     {s.n === 3 && headcount > 0 ? `${approved} of ${headcount} approved` : s.sub}
                   </div>
                 </Link>
@@ -148,7 +130,7 @@ export default function PayrollOverview() {
             })}
           </div>
 
-          <div className="border-t pt-3" style={{ borderColor: 'var(--paper-edge)' }}>
+          <div className="border-t border-paper-edge pt-3">
             <div className="text-xs font-semibold mb-2">Statutory breakdown</div>
             <table className="w-full text-xs">
               <tbody>
@@ -162,18 +144,15 @@ export default function PayrollOverview() {
                 ].map(([label, amount, note], i) => (
                   <tr
                     key={i}
-                    className="border-b"
+                    className="border-b border-paper-edge"
                     style={{
-                      borderColor: 'var(--paper-edge)',
                       fontWeight: i === 5 ? 700 : 400,
                       background: i === 5 ? 'var(--accent-soft)' : 'transparent',
                     }}
                   >
                     <td className="py-1 pr-2">{label}</td>
-                    <td className="py-1 font-mono text-right pr-3">
-                      {formatMoney(Number(amount))}
-                    </td>
-                    <td className="py-1" style={{ color: 'var(--ink-2)' }}>{note}</td>
+                    <td className="py-1 num text-right pr-3">{formatMoney(Number(amount))}</td>
+                    <td className="py-1 text-ink-2">{note}</td>
                   </tr>
                 ))}
               </tbody>
@@ -181,8 +160,7 @@ export default function PayrollOverview() {
           </div>
         </div>
 
-        {/* Right: needs you */}
-        <div className="rounded-lg p-4" style={{ border: '1px solid var(--paper-edge)', background: 'var(--surface)' }}>
+        <div className="card p-4">
           <div className="font-semibold mb-3">Needs you</div>
           <div className="flex flex-col gap-2">
             {[
@@ -193,19 +171,19 @@ export default function PayrollOverview() {
               <Link
                 key={i}
                 href={x.href}
-                className="rounded p-2 block"
+                className="rounded p-2 block no-underline"
                 style={{
                   border: `1.5px solid ${x.tone === 'accent' ? 'var(--accent)' : x.tone === 'warn' ? '#c0392b' : 'var(--paper-edge)'}`,
                   background: x.tone === 'accent' ? 'var(--accent-soft)' : x.tone === 'warn' ? '#fdecea' : 'var(--surface)',
                 }}
               >
                 <div className="text-sm font-medium">{x.t}</div>
-                <div className="text-xs mt-0.5" style={{ color: 'var(--ink-2)' }}>{x.s}</div>
+                <div className="text-xs mt-0.5 text-ink-2">{x.s}</div>
               </Link>
             ))}
           </div>
 
-          <div className="mt-4 text-xs" style={{ color: 'var(--muted)', fontStyle: 'italic' }}>
+          <div className="mt-4 text-xs italic text-muted">
             tax tables · SARS 2025/26 · update each March
           </div>
         </div>

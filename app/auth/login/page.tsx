@@ -55,69 +55,45 @@ export default function LoginPage() {
 
   return (
     <div className="flex items-center justify-center h-full">
-      <div
-        className="w-80 border rounded-lg p-8"
-        style={{ background: 'var(--surface)', borderColor: 'var(--paper-edge)' }}
-      >
+      <div className="w-80 card rounded-lg p-8">
         <div className="mb-6">
-          <div className="font-semibold text-sm" style={{ color: 'var(--ink)' }}>myAccount</div>
-          <div className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>Sign in to continue</div>
+          <div className="font-semibold text-sm">myAccount</div>
+          <div className="text-xs mt-0.5 text-muted">Sign in to continue</div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs mb-1" style={{ color: 'var(--ink-2)' }}>Password</label>
+            <label className="field-label">Password</label>
             <input
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
               autoFocus
-              className="w-full border rounded px-3 py-2"
-              style={{
-                borderColor: 'var(--paper-edge)',
-                background: 'var(--paper)',
-                color: 'var(--ink)',
-                outline: 'none',
-              }}
+              className="field outline-none"
               placeholder="••••••••"
             />
           </div>
 
           <div>
-            <label className="block text-xs mb-1" style={{ color: 'var(--ink-2)' }}>
-              What is {captcha.question}?
-            </label>
+            <label className="field-label">What is {captcha.question}?</label>
             <input
               type="number"
               value={captchaInput}
               onChange={e => setCaptchaInput(e.target.value)}
               required
-              className="w-full border rounded px-3 py-2"
-              style={{
-                borderColor: 'var(--paper-edge)',
-                background: 'var(--paper)',
-                color: 'var(--ink)',
-                outline: 'none',
-              }}
+              className="field outline-none"
               placeholder="Answer"
             />
           </div>
 
-          {error && (
-            <div className="text-xs" style={{ color: 'var(--negative)' }}>{error}</div>
-          )}
+          {error && <div className="text-xs text-negative">{error}</div>}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2 rounded text-sm font-medium"
-            style={{
-              background: loading ? 'var(--muted)' : 'var(--accent)',
-              color: '#fff',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              border: 'none',
-            }}
+            className="btn btn-primary w-full py-2"
+            style={loading ? { opacity: 0.6, cursor: 'not-allowed' } : undefined}
           >
             {loading ? 'Signing in…' : 'Sign in'}
           </button>

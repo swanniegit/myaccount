@@ -39,16 +39,12 @@ export default function EmployeesPage() {
   function field(key: keyof typeof form, label: string, type = 'text') {
     return (
       <div key={key}>
-        <label className="block text-xs mb-1" style={{ color: 'var(--ink-2)' }}>{label}</label>
+        <label className="field-label">{label}</label>
         <input
           type={type}
           value={form[key]}
           onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-          className="w-full px-2.5 py-1.5 rounded text-xs outline-none border"
-          style={{
-            borderColor: 'var(--paper-edge)',
-            background: 'var(--paper)',
-          }}
+          className="field"
         />
       </div>
     )
@@ -59,7 +55,7 @@ export default function EmployeesPage() {
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <div className="text-xs" style={{ color: 'var(--ink-2)' }}>
+        <div className="text-xs text-ink-2">
           {employees.length} active · annual CTC {formatMoney(totalGross * 12)}
         </div>
         <div className="flex gap-2">
@@ -69,10 +65,7 @@ export default function EmployeesPage() {
       </div>
 
       {showForm && (
-        <div
-          className="rounded-lg p-4 mb-4"
-          style={{ border: '1px solid var(--accent)', background: 'var(--accent-soft)' }}
-        >
+        <div className="card-accent p-4 mb-4">
           <div className="font-semibold text-sm mb-3">New employee</div>
           <div className="grid grid-cols-3 gap-3 mb-3">
             {field('code',         'Employee code')}
@@ -97,52 +90,43 @@ export default function EmployeesPage() {
         </div>
       )}
 
-      <div
-        className="rounded-lg overflow-hidden"
-        style={{ border: '1px solid var(--paper-edge)' }}
-      >
+      <div className="card overflow-hidden">
         <table className="w-full text-xs">
-          <thead>
-            <tr style={{ background: 'var(--paper)', borderBottom: '2px solid var(--ink)' }}>
-              <th className="px-3 py-2 text-left font-medium" style={{ color: 'var(--ink-2)' }}>Code</th>
-              <th className="px-3 py-2 text-left font-medium" style={{ color: 'var(--ink-2)' }}>Name · Role</th>
-              <th className="px-3 py-2 text-left font-medium" style={{ color: 'var(--ink-2)' }}>Tax #</th>
-              <th className="px-3 py-2 text-right font-medium" style={{ color: 'var(--ink-2)' }}>Basic</th>
-              <th className="px-3 py-2 text-left font-medium" style={{ color: 'var(--ink-2)' }}>Frequency</th>
-              <th className="px-3 py-2 text-left font-medium" style={{ color: 'var(--ink-2)' }}>Status</th>
+          <thead className="t-head">
+            <tr>
+              <th className="text-left font-medium">Code</th>
+              <th className="text-left font-medium">Name · Role</th>
+              <th className="text-left font-medium">Tax #</th>
+              <th className="text-right font-medium">Basic</th>
+              <th className="text-left font-medium">Frequency</th>
+              <th className="text-left font-medium">Status</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={6} className="px-3 py-8 text-center" style={{ color: 'var(--muted)' }}>
-                  Loading…
-                </td>
+                <td colSpan={6} className="px-3 py-8 text-center text-muted">Loading…</td>
               </tr>
             ) : employees.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-3 py-8 text-center" style={{ color: 'var(--muted)' }}>
+                <td colSpan={6} className="px-3 py-8 text-center text-muted">
                   No employees yet — add your first employee above.
                 </td>
               </tr>
             ) : (
               employees.map(emp => (
-                <tr
-                  key={emp.id}
-                  className="border-b"
-                  style={{ borderColor: 'var(--paper-edge)', background: 'var(--surface)' }}
-                >
-                  <td className="px-3 py-2 font-mono" style={{ color: 'var(--ink-2)' }}>{emp.code}</td>
-                  <td className="px-3 py-2">
+                <tr key={emp.id} className="t-row">
+                  <td className="t-cell font-mono text-ink-2">{emp.code}</td>
+                  <td className="t-cell">
                     <span className="font-medium">{emp.full_name}</span>
                     {emp.job_title && (
-                      <span className="ml-1.5" style={{ color: 'var(--ink-2)' }}>· {emp.job_title}</span>
+                      <span className="ml-1.5 text-ink-2">· {emp.job_title}</span>
                     )}
                   </td>
-                  <td className="px-3 py-2 font-mono">{emp.tax_number ?? '—'}</td>
-                  <td className="px-3 py-2 font-mono text-right">{formatMoney(Number(emp.basic_salary))}</td>
-                  <td className="px-3 py-2 capitalize">{emp.pay_frequency}</td>
-                  <td className="px-3 py-2">
+                  <td className="t-cell font-mono">{emp.tax_number ?? '—'}</td>
+                  <td className="t-cell num">{formatMoney(Number(emp.basic_salary))}</td>
+                  <td className="t-cell capitalize">{emp.pay_frequency}</td>
+                  <td className="t-cell">
                     <span
                       className="px-2 py-0.5 rounded-full text-xs"
                       style={{
@@ -160,11 +144,11 @@ export default function EmployeesPage() {
           </tbody>
           {employees.length > 0 && (
             <tfoot>
-              <tr style={{ background: 'var(--accent-soft)', borderTop: '2px solid var(--paper-edge)' }}>
+              <tr className="border-t-2 border-paper-edge" style={{ background: 'var(--accent-soft)' }}>
                 <td colSpan={3} className="px-3 py-2 font-semibold">
                   Total · {employees.length} employees
                 </td>
-                <td className="px-3 py-2 font-mono text-right font-semibold">
+                <td className="px-3 py-2 num font-semibold">
                   {formatMoney(totalGross)}
                 </td>
                 <td colSpan={2} />

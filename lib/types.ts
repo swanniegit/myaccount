@@ -59,6 +59,7 @@ export interface Invoice {
   date: string
   due_date: string | null
   status: InvoiceStatus
+  invoice_type: 'invoice' | 'bill'
   subtotal: number
   vat_amount: number
   total: number

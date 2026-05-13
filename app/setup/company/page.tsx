@@ -7,12 +7,6 @@ import Button from '@/components/ui/Button'
 
 const TABS = ['Company', 'Tax & SARS', 'Bank accounts', 'Users', 'Year-end', 'Integrations']
 
-const fieldCls = [
-  'w-full px-2.5 py-1.5 rounded text-xs outline-none',
-  'border border-[color:var(--paper-edge)] bg-[color:var(--paper)]',
-  'focus:border-[color:var(--accent)]',
-].join(' ')
-
 export default function CompanySettingsPage() {
   const [tab, setTab] = useState('Tax & SARS')
   const [company, setCompany] = useState<Company | null>(null)
@@ -91,9 +85,7 @@ export default function CompanySettingsPage() {
     <div className="p-5 max-w-4xl">
       <div className="mb-4">
         <h1 className="text-xl font-semibold">Setup · Company</h1>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--ink-2)' }}>
-          SARS / VAT / banking · used everywhere
-        </p>
+        <p className="text-xs mt-0.5 text-ink-2">SARS / VAT / banking · used everywhere</p>
       </div>
 
       {/* Tabs */}
@@ -102,12 +94,8 @@ export default function CompanySettingsPage() {
           <button
             key={t}
             onClick={() => setTab(t)}
-            className="px-3 py-1.5 text-xs rounded font-medium transition-colors"
-            style={{
-              background: tab === t ? 'var(--ink)' : 'var(--surface)',
-              color: tab === t ? '#fff' : 'var(--ink-2)',
-              border: `1px solid ${tab === t ? 'var(--ink)' : 'var(--paper-edge)'}`,
-            }}
+            className="pill"
+            data-active={tab === t}
           >
             {t}
           </button>
@@ -116,20 +104,20 @@ export default function CompanySettingsPage() {
 
       {/* ── Company ── */}
       {tab === 'Company' && (
-        <div className="rounded-lg p-5 mb-4" style={{ background: 'var(--surface)', border: '1px solid var(--paper-edge)' }}>
+        <div className="card p-5 mb-4">
           <div className="text-sm font-medium mb-4 italic">Business details</div>
           <div className="grid grid-cols-2 gap-3">
             <F label="Business name">
-              <input className={fieldCls} value={name} onChange={e => setName(e.target.value)} placeholder="Thandi's Trading (Pty) Ltd" />
+              <input className="field" value={name} onChange={e => setName(e.target.value)} placeholder="Thandi's Trading (Pty) Ltd" />
             </F>
             <F label="Phone">
-              <input className={fieldCls} value={phone} onChange={e => setPhone(e.target.value)} placeholder="+27 11 123 4567" />
+              <input className="field" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+27 11 123 4567" />
             </F>
             <F label="Email">
-              <input className={fieldCls} value={email} onChange={e => setEmail(e.target.value)} placeholder="accounts@company.co.za" />
+              <input className="field" value={email} onChange={e => setEmail(e.target.value)} placeholder="accounts@company.co.za" />
             </F>
             <F label="Address">
-              <input className={fieldCls} value={address} onChange={e => setAddress(e.target.value)} placeholder="123 Main Street, Sandton, 2196" />
+              <input className="field" value={address} onChange={e => setAddress(e.target.value)} placeholder="123 Main Street, Sandton, 2196" />
             </F>
           </div>
         </div>
@@ -138,70 +126,70 @@ export default function CompanySettingsPage() {
       {/* ── Tax & SARS ── */}
       {tab === 'Tax & SARS' && (
         <div className="grid grid-cols-2 gap-4 mb-4">
-          <div className="rounded-lg p-5" style={{ background: 'var(--surface)', border: '1px solid var(--paper-edge)' }}>
+          <div className="card p-5">
             <div className="text-sm font-medium mb-4 italic">Tax registration</div>
             <div className="grid grid-cols-2 gap-3">
               <F label="Business name">
-                <input className={fieldCls} value={name} onChange={e => setName(e.target.value)} />
+                <input className="field" value={name} onChange={e => setName(e.target.value)} />
               </F>
               <F label="Reg no.">
-                <input className={fieldCls} value={regNo} onChange={e => setRegNo(e.target.value)} placeholder="2022/123456/07" />
+                <input className="field" value={regNo} onChange={e => setRegNo(e.target.value)} placeholder="2022/123456/07" />
               </F>
               <F label="Tax / Income tax no.">
-                <input className={fieldCls} value={taxNo} onChange={e => setTaxNo(e.target.value)} placeholder="9123456789" />
+                <input className="field" value={taxNo} onChange={e => setTaxNo(e.target.value)} placeholder="9123456789" />
               </F>
               <F label="VAT no.">
-                <input className={fieldCls} value={vatNo} onChange={e => setVatNo(e.target.value)} placeholder="4123456789" />
+                <input className="field" value={vatNo} onChange={e => setVatNo(e.target.value)} placeholder="4123456789" />
               </F>
               <F label="VAT registration date">
-                <input className={fieldCls} type="date" value={vatDate} onChange={e => setVatDate(e.target.value)} />
+                <input className="field" type="date" value={vatDate} onChange={e => setVatDate(e.target.value)} />
               </F>
               <F label="VAT cycle">
-                <select className={fieldCls} value={vatCycle} onChange={e => setVatCycle(e.target.value)}>
+                <select className="field" value={vatCycle} onChange={e => setVatCycle(e.target.value)}>
                   <option>Category A - bi-monthly</option>
                   <option>Category B - bi-monthly</option>
                   <option>Category C - monthly</option>
                 </select>
               </F>
               <F label="PAYE / UIF / SDL ref">
-                <input className={fieldCls} value={payeRef} onChange={e => setPayeRef(e.target.value)} placeholder="7700123456" />
+                <input className="field" value={payeRef} onChange={e => setPayeRef(e.target.value)} placeholder="7700123456" />
               </F>
               <F label="SARS eFiling user">
-                <input className={fieldCls} value={efilingUser} onChange={e => setEfilingUser(e.target.value)} placeholder="TG-44" />
+                <input className="field" value={efilingUser} onChange={e => setEfilingUser(e.target.value)} placeholder="TG-44" />
               </F>
             </div>
-            <div className="mt-3 px-3 py-2 text-xs rounded" style={{ border: '1px dashed var(--accent)', color: 'var(--accent)', fontStyle: 'italic' }}>
+            <div className="notice notice-accent italic text-xs mt-3">
               Used on every tax invoice, VAT 201 and EMP 201 submission
             </div>
           </div>
 
-          <div className="rounded-lg p-5" style={{ background: 'var(--surface)', border: '1px solid var(--paper-edge)' }}>
+          <div className="card p-5">
             <div className="text-sm font-medium mb-4 italic">Accounting policy</div>
             <div className="grid grid-cols-2 gap-3 mb-4">
               <F label="Reporting standard">
-                <input className={fieldCls} readOnly value="IFRS for SMEs" style={{ opacity: 0.6 }} />
+                <input className="field" readOnly value="IFRS for SMEs" style={{ opacity: 0.6 }} />
               </F>
               <F label="Functional currency">
-                <input className={fieldCls} readOnly value="ZAR (R)" style={{ opacity: 0.6 }} />
+                <input className="field" readOnly value="ZAR (R)" style={{ opacity: 0.6 }} />
               </F>
               <F label="Year end">
-                <select className={fieldCls} value={yearEnd} onChange={e => setYearEnd(Number(e.target.value))}>
+                <select className="field" value={yearEnd} onChange={e => setYearEnd(Number(e.target.value))}>
                   {Array.from({ length: 12 }, (_, i) => (
                     <option key={i + 1} value={i + 1}>{monthName(i + 1)}</option>
                   ))}
                 </select>
               </F>
               <F label="Books locked through">
-                <input className={fieldCls} type="date" value={booksLocked} onChange={e => setBooksLocked(e.target.value)} />
+                <input className="field" type="date" value={booksLocked} onChange={e => setBooksLocked(e.target.value)} />
               </F>
               <F label="Default VAT">
-                <select className={fieldCls} value={defaultVat} onChange={e => setDefaultVat(e.target.value)}>
+                <select className="field" value={defaultVat} onChange={e => setDefaultVat(e.target.value)}>
                   <option value="15">15% (standard)</option>
                   <option value="0">0% (zero-rated)</option>
                 </select>
               </F>
               <F label="Inventory method">
-                <select className={fieldCls} value={inventoryMethod} onChange={e => setInventoryMethod(e.target.value)}>
+                <select className="field" value={inventoryMethod} onChange={e => setInventoryMethod(e.target.value)}>
                   <option value="FIFO">FIFO – perpetual</option>
                   <option value="WAC">Weighted average</option>
                 </select>
@@ -220,37 +208,35 @@ export default function CompanySettingsPage() {
 
       {/* ── Bank accounts ── */}
       {tab === 'Bank accounts' && (
-        <div className="rounded-lg overflow-hidden mb-4" style={{ border: '1px solid var(--paper-edge)' }}>
-          <div className="px-4 py-2 text-xs font-medium" style={{ background: 'var(--paper-edge)', color: 'var(--ink-2)' }}>
+        <div className="card overflow-hidden mb-4">
+          <div className="px-4 py-2 text-xs font-medium bg-paper-edge text-ink-2">
             Connected bank accounts
           </div>
           {bankAccounts.length === 0 ? (
-            <div className="px-4 py-6 text-xs text-center" style={{ color: 'var(--muted)' }}>
+            <div className="px-4 py-6 text-xs text-center text-muted">
               No bank accounts configured — run the import script to add one
             </div>
           ) : (
             <table className="w-full text-xs">
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--paper-edge)' }}>
+              <thead className="t-head">
+                <tr>
                   {['Name', 'Bank', 'Account number', 'Closing balance', 'Status'].map(h => (
-                    <th key={h} className="px-4 py-2 text-left font-medium" style={{ color: 'var(--ink-2)' }}>{h}</th>
+                    <th key={h} className="text-left font-medium">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {bankAccounts.map(ba => (
-                  <tr key={ba.id} style={{ borderBottom: '1px solid var(--paper-edge)', background: 'var(--surface)' }}>
-                    <td className="px-4 py-2 font-medium">{ba.name}</td>
-                    <td className="px-4 py-2" style={{ color: 'var(--ink-2)' }}>{ba.bank_name ?? '—'}</td>
-                    <td className="px-4 py-2 font-mono" style={{ color: 'var(--ink-2)' }}>
+                  <tr key={ba.id} className="t-row">
+                    <td className="t-cell font-medium">{ba.name}</td>
+                    <td className="t-cell text-ink-2">{ba.bank_name ?? '—'}</td>
+                    <td className="t-cell font-mono text-ink-2">
                       {ba.account_number ? ba.account_number.slice(0, 4) + ' ···· ' + ba.account_number.slice(-4) : '—'}
                     </td>
-                    <td className="px-4 py-2 font-mono">
+                    <td className="t-cell num">
                       R {ba.balance.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
                     </td>
-                    <td className="px-4 py-2">
-                      <span style={{ color: 'var(--positive)' }}>active ✓</span>
-                    </td>
+                    <td className="t-cell text-positive">active ✓</td>
                   </tr>
                 ))}
               </tbody>
@@ -261,15 +247,15 @@ export default function CompanySettingsPage() {
 
       {/* ── Users ── */}
       {tab === 'Users' && (
-        <div className="rounded-lg p-5 mb-4" style={{ background: 'var(--surface)', border: '1px solid var(--paper-edge)' }}>
+        <div className="card p-5 mb-4">
           <div className="text-sm font-medium mb-3 italic">Users</div>
-          <div className="text-xs" style={{ color: 'var(--ink-2)' }}>
-            <div className="flex justify-between py-2" style={{ borderBottom: '1px dotted var(--paper-edge)' }}>
+          <div className="text-xs">
+            <div className="flex justify-between py-2 border-b border-dotted border-paper-edge">
               <span>photosharer818@gmail.com</span>
-              <span style={{ color: 'var(--positive)' }}>Owner</span>
+              <span className="text-positive">Owner</span>
             </div>
           </div>
-          <p className="text-xs mt-4" style={{ color: 'var(--muted)', fontStyle: 'italic' }}>
+          <p className="text-xs mt-4 text-muted italic">
             Invite additional users — accountant, bookkeeper, auditor read-only — coming soon
           </p>
         </div>
@@ -277,21 +263,21 @@ export default function CompanySettingsPage() {
 
       {/* ── Year-end ── */}
       {tab === 'Year-end' && (
-        <div className="rounded-lg p-5 mb-4" style={{ background: 'var(--surface)', border: '1px solid var(--paper-edge)' }}>
+        <div className="card p-5 mb-4">
           <div className="text-sm font-medium mb-4 italic">Year-end & lock</div>
           <div className="grid grid-cols-2 gap-3 max-w-sm">
             <F label="Financial year end month">
-              <select className={fieldCls} value={yearEnd} onChange={e => setYearEnd(Number(e.target.value))}>
+              <select className="field" value={yearEnd} onChange={e => setYearEnd(Number(e.target.value))}>
                 {Array.from({ length: 12 }, (_, i) => (
                   <option key={i + 1} value={i + 1}>{monthName(i + 1)}</option>
                 ))}
               </select>
             </F>
             <F label="Books locked through">
-              <input className={fieldCls} type="date" value={booksLocked} onChange={e => setBooksLocked(e.target.value)} />
+              <input className="field" type="date" value={booksLocked} onChange={e => setBooksLocked(e.target.value)} />
             </F>
           </div>
-          <p className="text-xs mt-4" style={{ color: 'var(--ink-2)', fontStyle: 'italic' }}>
+          <p className="text-xs mt-4 italic text-ink-2">
             Locking the books prevents back-dated journal entries · year-end close runs the IT14 pack
           </p>
         </div>
@@ -299,7 +285,7 @@ export default function CompanySettingsPage() {
 
       {/* ── Integrations ── */}
       {tab === 'Integrations' && (
-        <div className="rounded-lg p-5 mb-4" style={{ background: 'var(--surface)', border: '1px solid var(--paper-edge)' }}>
+        <div className="card p-5 mb-4">
           <div className="text-sm font-medium mb-4 italic">External integrations</div>
           <div className="space-y-3">
             {[
@@ -308,21 +294,16 @@ export default function CompanySettingsPage() {
               { label: 'SimplePay (payroll)', desc: 'Sync payroll journals from SimplePay', linked: false, action: 'Connect' },
               { label: 'Yoco / Stitch (POS)', desc: 'Auto-reconcile card payments', linked: false, action: 'Connect' },
             ].map(item => (
-              <div key={item.label} className="flex items-center justify-between py-2" style={{ borderBottom: '1px dotted var(--paper-edge)' }}>
+              <div key={item.label} className="flex items-center justify-between py-2 border-b border-dotted border-paper-edge">
                 <div>
                   <div className="text-xs font-medium">{item.label}</div>
-                  <div className="text-xs mt-0.5" style={{ color: 'var(--ink-2)' }}>{item.desc}</div>
+                  <div className="text-xs mt-0.5 text-ink-2">{item.desc}</div>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-xs" style={{ color: item.linked ? 'var(--positive)' : 'var(--muted)' }}>
                     {item.linked ? 'linked ✓' : 'not linked'}
                   </span>
-                  <button
-                    className="text-xs px-2 py-1 rounded"
-                    style={{ border: '1px solid var(--paper-edge)', color: 'var(--ink-2)' }}
-                  >
-                    {item.action}
-                  </button>
+                  <button className="btn btn-ghost text-xs">{item.action}</button>
                 </div>
               </div>
             ))}
@@ -333,7 +314,7 @@ export default function CompanySettingsPage() {
       {/* Footer */}
       {tab !== 'Users' && tab !== 'Bank accounts' && tab !== 'Integrations' && (
         <div className="flex items-center justify-between">
-          <div className="px-3 py-2 text-xs rounded" style={{ border: '1px dashed var(--paper-edge)', color: 'var(--ink-2)', fontStyle: 'italic' }}>
+          <div className="notice notice-dashed text-xs italic">
             {tab === 'Year-end'
               ? 'Locking the books prevents back-dated journal entries · year-end runs the IT14 pack'
               : 'Changes take effect immediately on all reports and submissions'}
@@ -350,8 +331,8 @@ export default function CompanySettingsPage() {
 function F({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-xs mb-1" style={{ color: 'var(--ink-2)' }}>{label}</label>
-      {children}
+      <label className="field-label">{label}</label>
+      <div className="field-wrap">{children}</div>
     </div>
   )
 }

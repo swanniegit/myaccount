@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Bulk import from production liveHIS → myAccount Supabase.
- * Processes all invoices + payments from 2025-03-01 onwards.
+ * Optimised: pre-loads caches, batches all inserts.
  *
  * Usage:
  *   node scripts/import-livehis-prod.mjs
@@ -28,245 +28,262 @@ const db = await mysql.createConnection({
   database: 'heartsinscrubs_db',
 })
 
+const BATCH = 200
+
 // ---------------------------------------------------------------------------
-// Account ID cache
+// Helpers
 // ---------------------------------------------------------------------------
-const accountCache = {}
-async function getAccountId(code) {
-  if (accountCache[code]) return accountCache[code]
-  const { data, error } = await supabase.from('acct_accounts').select('id').eq('code', code).single()
-  if (error || !data) throw new Error(`Account ${code} not found: ${error?.message}`)
-  accountCache[code] = data.id
-  return data.id
+
+async function sbInsertBatch(table, rows) {
+  if (!rows.length || DRY) return []
+  const results = []
+  for (let i = 0; i < rows.length; i += BATCH) {
+    const { data, error } = await supabase.from(table).insert(rows.slice(i, i + BATCH)).select('id')
+    if (error) throw new Error(`${table} batch insert failed: ${error.message}`)
+    results.push(...(data ?? []))
+  }
+  return results
+}
+
+async function getAccountIds(...codes) {
+  const { data, error } = await supabase.from('acct_accounts').select('id,code').in('code', codes)
+  if (error) throw new Error(`Account lookup failed: ${error.message}`)
+  const map = {}
+  for (const row of data) map[row.code] = row.id
+  for (const code of codes) if (!map[code]) throw new Error(`Account ${code} not found`)
+  return map
 }
 
 // ---------------------------------------------------------------------------
-// Contact upsert cache
+// Phase 1: Contacts
 // ---------------------------------------------------------------------------
-const contactCache = {}
-async function upsertContact(patientId, name, email, phone) {
-  const ref = `his_pat_${patientId}`
-  if (contactCache[ref]) return contactCache[ref]
+async function importContacts(invoiceRows) {
+  console.log('Loading existing contacts from Supabase...')
+  const { data: existing } = await supabase.from('acct_contacts').select('id,external_ref')
+  const contactMap = {}
+  for (const c of existing ?? []) contactMap[c.external_ref] = c.id
 
-  const { data: existing } = await supabase
-    .from('acct_contacts')
-    .select('id')
-    .eq('external_ref', ref)
-    .maybeSingle()
-
-  if (existing) {
-    contactCache[ref] = existing.id
-    return existing.id
+  // Dedupe patients from invoices
+  const seen = new Set(Object.keys(contactMap))
+  const toInsert = []
+  for (const row of invoiceRows) {
+    const ref = `his_pat_${row.patient_id}`
+    if (seen.has(ref)) continue
+    seen.add(ref)
+    const name = `${row.patient_names || ''} ${row.patient_surname || ''}`.trim() || 'Unknown'
+    toInsert.push({ name, type: 'customer', email: row.email || null, phone: row.contact_number || null, external_ref: ref, is_active: true })
   }
 
-  if (DRY) {
-    contactCache[ref] = `dry_${ref}`
-    return contactCache[ref]
+  console.log(`  ${Object.keys(contactMap).length} already in Supabase, inserting ${toInsert.length} new...`)
+  if (!DRY && toInsert.length) {
+    const inserted = await sbInsertBatch('acct_contacts', toInsert)
+    for (let i = 0; i < toInsert.length; i++) contactMap[toInsert[i].external_ref] = inserted[i]?.id
   }
-
-  const { data, error } = await supabase
-    .from('acct_contacts')
-    .insert({ name: name || 'Unknown', type: 'customer', email: email || null, phone: phone || null, external_ref: ref, is_active: true })
-    .select('id')
-    .single()
-  if (error || !data) throw new Error(`Failed to upsert contact ${ref}: ${error?.message}`)
-  contactCache[ref] = data.id
-  return data.id
+  console.log(`  Contacts ready: ${Object.keys(contactMap).length}`)
+  return contactMap
 }
 
 // ---------------------------------------------------------------------------
-// Invoice import
+// Phase 2: Invoices + journals
 // ---------------------------------------------------------------------------
-async function importInvoices() {
-  const [rows] = await db.execute(`
-    SELECT
-      i.invoice_id, i.invoice_number, i.invoice_date, i.invoice_type,
-      i.subtotal_amount, i.vat_amount, i.total_amount, i.status, i.due_date, i.notes,
-      p.patient_id, p.patient_surname, p.patient_names, p.email, p.contact_number
-    FROM billing_invoices i
-    JOIN patients p ON i.patient_id = p.patient_id
-    WHERE i.invoice_date >= '2025-03-01'
-    ORDER BY i.invoice_date
-  `)
+async function importInvoices(invoiceRows, contactMap, accts) {
+  console.log('\nLoading existing invoice refs from Supabase...')
+  const { data: existing } = await supabase.from('acct_invoices').select('id,external_ref')
+  const existingRefs = new Set((existing ?? []).map(r => r.external_ref))
+  console.log(`  ${existingRefs.size} already imported, skipping those.`)
 
-  console.log(`\nImporting ${rows.length} invoices...`)
+  const toProcess = invoiceRows.filter(r => !existingRefs.has(`his_inv_${r.invoice_id}`))
+  console.log(`  Importing ${toProcess.length} new invoices...`)
 
-  let ok = 0, skipped = 0, failed = 0
+  if (!toProcess.length) { console.log('  Nothing to import.'); return {} }
 
-  for (const row of rows) {
-    const externalRef = `his_inv_${row.invoice_id}`
+  // Map: invoice_id → supabase uuid (populated after insert)
+  const invRefToId = {}
 
-    // Idempotency check
-    const { data: existing } = await supabase
-      .from('acct_invoices')
-      .select('id')
-      .eq('external_ref', externalRef)
-      .maybeSingle()
+  const statusMap = { draft: 'draft', submitted: 'sent', unpaid: 'sent', partially_paid: 'sent', paid: 'paid', cancelled: 'void', write_off: 'void', void: 'void', split_pending_payment: 'sent' }
 
-    if (existing) { skipped++; continue }
+  // Process in chunks so we can link journal entries to invoices
+  for (let chunk = 0; chunk < toProcess.length; chunk += BATCH) {
+    const slice = toProcess.slice(chunk, chunk + BATCH)
 
-    try {
-      const name = `${row.patient_names || ''} ${row.patient_surname || ''}`.trim() || 'Unknown'
-      const contactId = await upsertContact(row.patient_id, name, row.email, row.contact_number)
-
-      const subtotal = parseFloat(row.subtotal_amount) || 0
-      const vatAmount = parseFloat(row.vat_amount) || 0
-      const total = parseFloat(row.total_amount) || 0
-      const invoiceType = ['cash', 'medical_aid', 'corporate', 'wca'].includes(row.invoice_type)
-        ? row.invoice_type : 'cash'
-
-      let journalEntryId = null
-      if (!DRY && total > 0 && subtotal >= 0 && vatAmount >= 0) {
-        const safeTotal    = Math.max(0, total)
-        const safeSubtotal = Math.max(0, subtotal)
-        const safeVat      = Math.max(0, vatAmount)
-
-        const debitCode = invoiceType === 'cash' ? '1010' : '1100'
-        const [debitId, revenueId, vatId] = await Promise.all([
-          getAccountId(debitCode),
-          getAccountId('4100'),
-          getAccountId('2100'),
-        ])
-
-        const { data: entry, error: entryErr } = await supabase
-          .from('acct_journal_entries')
-          .insert({ date: row.invoice_date, description: `Invoice ${row.invoice_number} — liveHis`, reference: row.invoice_number, source: 'invoice', is_posted: true })
-          .select('id').single()
-        if (entryErr || !entry) throw new Error(`Journal entry failed: ${entryErr?.message}`)
-
-        await supabase.from('acct_journal_lines').insert([
-          { entry_id: entry.id, account_id: debitId,   debit: safeTotal,    credit: 0,            description: `AR/Cash — ${row.invoice_number}` },
-          { entry_id: entry.id, account_id: revenueId, debit: 0,            credit: safeSubtotal, description: `Revenue — ${row.invoice_number}` },
-          { entry_id: entry.id, account_id: vatId,     debit: 0,            credit: safeVat,      description: `VAT Output — ${row.invoice_number}` },
-        ])
-
-        journalEntryId = entry.id
+    // --- Build journal entries ---
+    const jeRows = []
+    for (const row of slice) {
+      const total = Math.max(0, parseFloat(row.total_amount) || 0)
+      if (total > 0) {
+        jeRows.push({ date: row.invoice_date, description: `Invoice ${row.invoice_number} — liveHis`, reference: row.invoice_number, source: 'invoice', is_posted: true, _inv_id: row.invoice_id })
       }
-
-      // Map status
-      const statusMap = { draft: 'draft', submitted: 'sent', unpaid: 'sent', partially_paid: 'sent', paid: 'paid', cancelled: 'void', write_off: 'void', void: 'void', split_pending_payment: 'sent' }
-      const status = statusMap[row.status] ?? 'sent'
-
-      if (!DRY) {
-        const { data: inv, error: invErr } = await supabase
-          .from('acct_invoices')
-          .insert({
-            number: row.invoice_number,
-            contact_id: contactId,
-            date: row.invoice_date,
-            due_date: row.due_date ?? null,
-            status,
-            subtotal,
-            vat_amount: vatAmount,
-            total,
-            notes: row.notes ?? null,
-            journal_entry_id: journalEntryId,
-            external_ref: externalRef,
-          })
-          .select('id').single()
-        if (invErr || !inv) throw new Error(`Invoice insert failed: ${invErr?.message}`)
-
-        // Fetch and insert line items
-        const [items] = await db.execute(
-          `SELECT description, quantity, unit_price, vat_rate, line_total FROM billing_invoice_items WHERE invoice_id = ?`,
-          [row.invoice_id]
-        )
-        if (items.length > 0) {
-          const revenueAccountId = await getAccountId('4100')
-          const lines = items.map(it => ({
-            invoice_id: inv.id,
-            description: it.description,
-            quantity: parseFloat(it.quantity) || 1,
-            unit_price: parseFloat(it.unit_price) || 0,
-            vat_rate: parseFloat(it.vat_rate) || 15,
-            account_id: revenueAccountId,
-            line_total: parseFloat(it.line_total) || 0,
-          }))
-          await supabase.from('acct_invoice_lines').insert(lines)
-        }
-      }
-
-      ok++
-      if (ok % 50 === 0) process.stdout.write(`  ${ok} invoices done...\n`)
-    } catch (e) {
-      console.error(`  FAIL invoice ${row.invoice_id}: ${e.message}`)
-      failed++
     }
+
+    let jeInserted = []
+    if (!DRY && jeRows.length) {
+      const { data, error } = await supabase
+        .from('acct_journal_entries')
+        .insert(jeRows.map(({ _inv_id, ...r }) => r))
+        .select('id')
+      if (error) throw new Error(`Journal entries failed: ${error.message}`)
+      jeInserted = data
+    }
+
+    // journal_entry_id map: invoice_id → journal entry supabase id
+    const jeMap = {}
+    let jeIdx = 0
+    for (const je of jeRows) {
+      jeMap[je._inv_id] = jeInserted[jeIdx]?.id ?? null
+      jeIdx++
+    }
+
+    // --- Build journal lines ---
+    const jlRows = []
+    for (const row of slice) {
+      const invId = row.invoice_id
+      const jeId = jeMap[invId]
+      if (!jeId) continue
+      const invoiceType = ['cash', 'medical_aid', 'corporate', 'wca'].includes(row.invoice_type) ? row.invoice_type : 'cash'
+      const debitCode = invoiceType === 'cash' ? '1010' : '1100'
+      const safeTotal    = Math.max(0, parseFloat(row.total_amount) || 0)
+      const safeSubtotal = Math.max(0, parseFloat(row.subtotal_amount) || 0)
+      const safeVat      = Math.max(0, parseFloat(row.vat_amount) || 0)
+      jlRows.push(
+        { entry_id: jeId, account_id: accts[debitCode], debit: safeTotal,    credit: 0,            description: `AR/Cash — ${row.invoice_number}` },
+        { entry_id: jeId, account_id: accts['4100'],     debit: 0,            credit: safeSubtotal, description: `Revenue — ${row.invoice_number}` },
+        { entry_id: jeId, account_id: accts['2100'],     debit: 0,            credit: safeVat,      description: `VAT Output — ${row.invoice_number}` },
+      )
+    }
+    if (!DRY && jlRows.length) await sbInsertBatch('acct_journal_lines', jlRows)
+
+    // --- Build invoices ---
+    const invRows = slice.map(row => ({
+      number: row.invoice_number,
+      contact_id: contactMap[`his_pat_${row.patient_id}`] ?? null,
+      date: row.invoice_date,
+      due_date: row.due_date ?? null,
+      status: statusMap[row.status] ?? 'sent',
+      subtotal: parseFloat(row.subtotal_amount) || 0,
+      vat_amount: parseFloat(row.vat_amount) || 0,
+      total: parseFloat(row.total_amount) || 0,
+      notes: row.notes ?? null,
+      journal_entry_id: jeMap[row.invoice_id] ?? null,
+      external_ref: `his_inv_${row.invoice_id}`,
+    }))
+
+    let invInserted = []
+    if (!DRY) {
+      const { data, error } = await supabase.from('acct_invoices')
+        .upsert(invRows, { onConflict: 'number', ignoreDuplicates: false })
+        .select('id,external_ref')
+      if (error) throw new Error(`Invoices batch failed: ${error.message}`)
+      invInserted = data
+    }
+    for (const inv of invInserted) invRefToId[inv.external_ref] = inv.id
+
+    process.stdout.write(`  ${Math.min(chunk + BATCH, toProcess.length)}/${toProcess.length} invoices...\n`)
   }
 
-  console.log(`Invoices: ${ok} imported, ${skipped} already existed, ${failed} failed`)
+  return invRefToId
 }
 
 // ---------------------------------------------------------------------------
-// Payment import
+// Phase 3: Invoice lines (batch fetch from MySQL, batch insert to Supabase)
 // ---------------------------------------------------------------------------
-async function importPayments() {
+async function importInvoiceLines(invoiceRows, invRefToId, accts) {
+  const invIds = invoiceRows.filter(r => invRefToId[`his_inv_${r.invoice_id}`]).map(r => r.invoice_id)
+  if (!invIds.length) { console.log('\nNo invoice lines to import.'); return }
+
+  console.log(`\nFetching invoice line items for ${invIds.length} invoices from MySQL...`)
+
+  const placeholders = invIds.map(() => '?').join(',')
+  const [items] = await db.execute(
+    `SELECT invoice_id, description, quantity, unit_price, vat_rate, line_total FROM billing_invoice_items WHERE invoice_id IN (${placeholders})`,
+    invIds
+  )
+
+  console.log(`  ${items.length} line items found. Inserting...`)
+
+  const revenueId = accts['4100']
+  const lineRows = items
+    .filter(it => invRefToId[`his_inv_${it.invoice_id}`])
+    .map(it => ({
+      invoice_id: invRefToId[`his_inv_${it.invoice_id}`],
+      description: it.description,
+      quantity: parseFloat(it.quantity) || 1,
+      unit_price: parseFloat(it.unit_price) || 0,
+      vat_rate: parseFloat(it.vat_rate) || 15,
+      account_id: revenueId,
+      line_total: parseFloat(it.line_total) || 0,
+    }))
+
+  if (!DRY) await sbInsertBatch('acct_invoice_lines', lineRows)
+  console.log(`  ${lineRows.length} invoice lines inserted.`)
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4: Payments
+// ---------------------------------------------------------------------------
+async function importPayments(accts) {
   const [rows] = await db.execute(`
-    SELECT
-      bp.payment_id, bp.invoice_id, bp.payment_date, bp.amount,
-      bp.payment_method, bp.reference_number, bp.status
+    SELECT bp.payment_id, bp.invoice_id, bp.payment_date, bp.amount, bp.payment_method, bp.reference_number
     FROM billing_payments bp
     JOIN billing_invoices bi ON bp.invoice_id = bi.invoice_id
-    WHERE bp.payment_date >= '2025-03-01'
-      AND bp.status = 'active'
+    WHERE bp.payment_date >= '2025-03-01' AND bp.status = 'active'
     ORDER BY bp.payment_date
   `)
 
   console.log(`\nImporting ${rows.length} payments...`)
 
-  let ok = 0, skipped = 0, failed = 0
+  // Load all invoices from Supabase for lookup
+  const { data: sbInvoices } = await supabase.from('acct_invoices').select('id,external_ref,total,status')
+  const invByRef = {}
+  for (const inv of sbInvoices ?? []) invByRef[inv.external_ref] = inv
 
-  const [bankId, arId] = await Promise.all([getAccountId('1010'), getAccountId('1100')])
+  // Load existing payment journal descriptions to skip dupes
+  const { data: existingJe } = await supabase.from('acct_journal_entries').select('description').eq('source', 'invoice')
+  const existingDescs = new Set((existingJe ?? []).map(e => e.description))
+
+  const jeRows = []
+  const jlRowSets = []   // parallel array — each element is [debit_line, credit_line]
+  const statusUpdates = []
 
   for (const row of rows) {
     const invRef = `his_inv_${row.invoice_id}`
+    const invoice = invByRef[invRef]
+    if (!invoice) continue
 
-    const { data: invoice } = await supabase
-      .from('acct_invoices')
-      .select('id, total, status')
-      .eq('external_ref', invRef)
-      .maybeSingle()
-
-    if (!invoice) { skipped++; continue }
-
-    // Check if payment journal already exists for this invoice + amount + date
     const desc = `Payment for ${invRef} — his_pay_${row.payment_id}`
-    const { data: existingEntry } = await supabase
-      .from('acct_journal_entries')
-      .select('id')
-      .eq('description', desc)
-      .maybeSingle()
-    if (existingEntry) { skipped++; continue }
+    if (existingDescs.has(desc)) continue
 
-    try {
-      const amount = parseFloat(row.amount) || 0
-      const methodMap = { cash: 'cash', eft: 'eft', credit_card: 'card', debit_card: 'card', medical_aid: 'medical_aid', cheque: 'eft', credit: 'eft', other: 'eft' }
-
-      if (!DRY) {
-        const { data: entry, error: entryErr } = await supabase
-          .from('acct_journal_entries')
-          .insert({ date: row.payment_date, description: desc, reference: row.reference_number ?? null, source: 'invoice', is_posted: true })
-          .select('id').single()
-        if (entryErr || !entry) throw new Error(`Payment journal failed: ${entryErr?.message}`)
-
-        await supabase.from('acct_journal_lines').insert([
-          { entry_id: entry.id, account_id: bankId, debit: amount, credit: 0,      description: desc },
-          { entry_id: entry.id, account_id: arId,   debit: 0,      credit: amount, description: desc },
-        ])
-
-        const newStatus = amount >= invoice.total ? 'paid' : invoice.status
-        await supabase.from('acct_invoices').update({ status: newStatus }).eq('id', invoice.id)
-      }
-
-      ok++
-      if (ok % 50 === 0) process.stdout.write(`  ${ok} payments done...\n`)
-    } catch (e) {
-      console.error(`  FAIL payment ${row.payment_id}: ${e.message}`)
-      failed++
-    }
+    const amount = parseFloat(row.amount) || 0
+    jeRows.push({ date: row.payment_date, description: desc, reference: row.reference_number ?? null, source: 'invoice', is_posted: true })
+    jlRowSets.push([
+      { account_id: accts['1010'], debit: amount, credit: 0,      description: desc },
+      { account_id: accts['1100'], debit: 0,      credit: amount, description: desc },
+    ])
+    const newStatus = amount >= invoice.total ? 'paid' : invoice.status
+    if (newStatus !== invoice.status) statusUpdates.push({ id: invoice.id, status: newStatus })
   }
 
-  console.log(`Payments: ${ok} imported, ${skipped} skipped (invoice not found or duplicate), ${failed} failed`)
+  console.log(`  ${jeRows.length} new payment journals to create (${rows.length - jeRows.length} skipped)`)
+
+  if (!DRY && jeRows.length) {
+    const { data: inserted, error } = await supabase.from('acct_journal_entries').insert(jeRows).select('id')
+    if (error) throw new Error(`Payment journal entries failed: ${error.message}`)
+
+    // Build journal lines with entry IDs
+    const allJl = []
+    for (let i = 0; i < inserted.length; i++) {
+      allJl.push({ entry_id: inserted[i].id, ...jlRowSets[i][0] })
+      allJl.push({ entry_id: inserted[i].id, ...jlRowSets[i][1] })
+    }
+    await sbInsertBatch('acct_journal_lines', allJl)
+
+    // Update invoice statuses
+    for (const { id, status } of statusUpdates) {
+      await supabase.from('acct_invoices').update({ status }).eq('id', id)
+    }
+    console.log(`  ${statusUpdates.length} invoice statuses updated to 'paid'`)
+  }
+
+  console.log(`Payments: ${jeRows.length} imported`)
 }
 
 // ---------------------------------------------------------------------------
@@ -274,10 +291,29 @@ async function importPayments() {
 // ---------------------------------------------------------------------------
 console.log(DRY ? '\n=== DRY RUN ===' : '\n=== LIVE IMPORT ===')
 console.log('Source: production liveHIS (sql32.cpt3.host-h.net)')
-console.log('Target: myAccount Supabase (saujtvflbumngsfcjvdt)')
+console.log('Target: myAccount Supabase (saujtvflbumngsfcjvdt)\n')
 
-await importInvoices()
-await importPayments()
+const accts = await getAccountIds('1010', '1100', '2100', '4100')
+console.log('Account IDs loaded:', Object.keys(accts).join(', '))
+
+// Fetch all invoices from MySQL once
+console.log('\nFetching all invoices from production liveHIS...')
+const [invoiceRows] = await db.execute(`
+  SELECT
+    i.invoice_id, i.invoice_number, i.invoice_date, i.invoice_type,
+    i.subtotal_amount, i.vat_amount, i.total_amount, i.status, i.due_date, i.notes,
+    p.patient_id, p.patient_surname, p.patient_names, p.email, p.contact_number
+  FROM billing_invoices i
+  JOIN patients p ON i.patient_id = p.patient_id
+  WHERE i.invoice_date >= '2025-03-01'
+  ORDER BY i.invoice_date
+`)
+console.log(`${invoiceRows.length} invoices loaded from liveHIS.`)
+
+const contactMap = await importContacts(invoiceRows)
+const invRefToId  = await importInvoices(invoiceRows, contactMap, accts)
+await importInvoiceLines(invoiceRows, invRefToId, accts)
+await importPayments(accts)
 
 await db.end()
-console.log('\nDone.')
+console.log('\nAll done.')

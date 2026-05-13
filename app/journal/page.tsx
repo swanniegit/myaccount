@@ -169,33 +169,25 @@ export default function JournalPage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-xl font-semibold">Journal Entry</h1>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--ink-2)' }}>
-            Drag-to-post · the headline interaction
-          </p>
+          <p className="text-xs mt-0.5 text-ink-2">Drag-to-post · the headline interaction</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="ghost" size="sm" onClick={() => setShowForm(v => !v)}>
-            Manual entry
-          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setShowForm(v => !v)}>Manual entry</Button>
         </div>
       </div>
 
       {/* Drag-to-post section */}
-      <div className="rounded-lg p-4" style={{ background: 'var(--surface)', border: '1px solid var(--paper-edge)' }}>
+      <div className="card p-4">
         {/* Sub-header */}
         <div className="flex items-center justify-between mb-2">
           <div>
             <span className="text-sm font-medium">New journal entry · JE-{entryNum}</span>
-            <span className="text-xs ml-3" style={{ color: 'var(--ink-2)' }}>
+            <span className="text-xs ml-3 text-ink-2">
               Drag any pending txn into the Dr or Cr side of a T-account · ⌥ to split · auto VAT 15%
             </span>
           </div>
           {balanced && (
-            <button
-              onClick={postDragEntry}
-              className="px-4 py-1.5 text-xs font-medium text-white"
-              style={{ background: 'var(--accent)', borderRadius: 999, border: 'none', cursor: 'pointer' }}
-            >
+            <button onClick={postDragEntry} className="btn btn-sm btn-primary">
               Post · balanced ✓
             </button>
           )}
@@ -206,7 +198,7 @@ export default function JournalPage() {
           className="flex items-center gap-2 p-2 rounded mb-4 flex-wrap"
           style={{ background: 'rgba(234,227,210,0.5)', border: '1.5px dashed var(--ink-2)' }}
         >
-          <span className="text-xs shrink-0" style={{ color: 'var(--ink-2)' }}>Pending tray →</span>
+          <span className="text-xs shrink-0 text-ink-2">Pending tray →</span>
           {chips.map(chip => (
             <div
               key={chip.id}
@@ -229,7 +221,7 @@ export default function JournalPage() {
             </div>
           ))}
           {chips.length === 0 && (
-            <span className="text-xs" style={{ color: 'var(--muted)' }}>All posted ✓</span>
+            <span className="text-xs text-muted">All posted ✓</span>
           )}
         </div>
 
@@ -237,8 +229,8 @@ export default function JournalPage() {
         <div className="flex flex-col gap-2 mb-3">
           <div className="flex items-center gap-2">
             <select
-              className="text-xs px-2 py-1 rounded"
-              style={{ border: '1px solid var(--paper-edge)', background: 'var(--paper)', color: 'var(--ink-2)', minWidth: 200 }}
+              className="field"
+              style={{ minWidth: 200, width: 'auto' }}
               onChange={e => {
                 if (e.target.value === '__add__') { setAddAccountTarget('pin'); setAddingAccount(true); e.target.value = ''; return }
                 const acc = accounts.find(a => a.id === e.target.value)
@@ -255,18 +247,18 @@ export default function JournalPage() {
             </select>
           </div>
           {addingAccount && (
-            <div className="flex gap-2 items-end p-3 rounded" style={{ background: 'var(--paper)', border: '1px solid var(--accent)' }}>
+            <div className="flex gap-2 items-end p-3 rounded bg-paper border border-accent">
               <div>
-                <label className="text-xs block mb-1" style={{ color: 'var(--ink-2)' }}>Code *</label>
-                <input value={newAccCode} onChange={e => setNewAccCode(e.target.value)} placeholder="e.g. 6100" className="w-20 rounded px-2 py-1 text-xs" style={{ border: '1px solid var(--paper-edge)', background: 'var(--surface)' }} />
+                <label className="field-label">Code *</label>
+                <input value={newAccCode} onChange={e => setNewAccCode(e.target.value)} placeholder="e.g. 6100" className="field" style={{ width: 80 }} />
               </div>
               <div className="flex-1">
-                <label className="text-xs block mb-1" style={{ color: 'var(--ink-2)' }}>Name *</label>
-                <input value={newAccName} onChange={e => setNewAccName(e.target.value)} placeholder="Account name" className="w-full rounded px-2 py-1 text-xs" style={{ border: '1px solid var(--paper-edge)', background: 'var(--surface)' }} />
+                <label className="field-label">Name *</label>
+                <input value={newAccName} onChange={e => setNewAccName(e.target.value)} placeholder="Account name" className="field" />
               </div>
               <div>
-                <label className="text-xs block mb-1" style={{ color: 'var(--ink-2)' }}>Type</label>
-                <select value={newAccType} onChange={e => setNewAccType(e.target.value)} className="rounded px-2 py-1 text-xs" style={{ border: '1px solid var(--paper-edge)', background: 'var(--surface)' }}>
+                <label className="field-label">Type</label>
+                <select value={newAccType} onChange={e => setNewAccType(e.target.value)} className="field" style={{ width: 'auto' }}>
                   <option value="asset">Asset</option>
                   <option value="liability">Liability</option>
                   <option value="equity">Equity</option>
@@ -274,8 +266,8 @@ export default function JournalPage() {
                   <option value="expense">Expense</option>
                 </select>
               </div>
-              <button onClick={saveNewAccount} className="px-3 py-1 rounded text-xs text-white" style={{ background: 'var(--accent)' }}>Save</button>
-              <button onClick={() => setAddingAccount(false)} className="px-3 py-1 rounded text-xs" style={{ border: '1px solid var(--paper-edge)' }}>Cancel</button>
+              <button onClick={saveNewAccount} className="btn btn-sm btn-primary">Save</button>
+              <button onClick={() => setAddingAccount(false)} className="btn btn-sm btn-ghost">Cancel</button>
             </div>
           )}
         </div>
@@ -299,29 +291,24 @@ export default function JournalPage() {
                     border: `1.5px solid ${dragTarget?.id === p.account.id ? 'var(--accent)' : 'var(--ink)'}`,
                   }}
                 >
-                  {/* Header */}
-                  <div
-                    className="flex justify-between items-center px-2 py-1.5"
-                    style={{ background: 'var(--ink)', color: '#fff' }}
-                  >
+                  <div className="flex justify-between items-center px-2 py-1.5 bg-ink text-white">
                     <span className="text-xs font-medium">{p.account.code} · {p.account.name}</span>
                     <button onClick={() => setPinned(prev => prev.filter(x => x.account.id !== p.account.id))}
                       className="text-xs opacity-60 hover:opacity-100">×</button>
                   </div>
-                  {/* DR / CR columns */}
                   <div className="flex" style={{ minHeight: 70 }}>
                     <div
-                      className="flex-1 p-2 border-r"
-                      style={{ borderColor: 'var(--ink)', background: dragTarget?.id === p.account.id && dragTarget.side === 'Dr' ? 'var(--accent-soft)' : 'transparent' }}
+                      className="flex-1 p-2 border-r border-ink"
+                      style={{ background: dragTarget?.id === p.account.id && dragTarget.side === 'Dr' ? 'var(--accent-soft)' : 'transparent' }}
                       onDragOver={e => { e.preventDefault(); setDragTarget({ id: p.account.id, side: 'Dr' }) }}
                       onDragLeave={() => setDragTarget(null)}
                       onDrop={e => { e.preventDefault(); handleDrop(p.account.id, 'Dr') }}
                     >
-                      <div className="text-xs font-medium mb-1" style={{ color: 'var(--accent)' }}>DR</div>
+                      <div className="text-xs font-medium mb-1 text-accent">DR</div>
                       {drLines.map((l, i) => (
                         <div key={i} className="text-xs">
-                          <div style={{ color: 'var(--muted)', fontSize: 10 }}>{l.label.split('\n')[0]}</div>
-                          <div className="font-mono" style={{ color: 'var(--accent)' }}>
+                          <div className="text-muted" style={{ fontSize: 10 }}>{l.label.split('\n')[0]}</div>
+                          <div className="font-mono text-accent">
                             {l.amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
                           </div>
                         </div>
@@ -334,28 +321,23 @@ export default function JournalPage() {
                       onDragLeave={() => setDragTarget(null)}
                       onDrop={e => { e.preventDefault(); handleDrop(p.account.id, 'Cr') }}
                     >
-                      <div className="text-xs font-medium mb-1" style={{ color: 'var(--ink-2)' }}>CR</div>
+                      <div className="text-xs font-medium mb-1 text-ink-2">CR</div>
                       {crLines.map((l, i) => (
                         <div key={i} className="text-xs">
-                          <div style={{ color: 'var(--muted)', fontSize: 10 }}>{l.label.split('\n')[0]}</div>
+                          <div className="text-muted" style={{ fontSize: 10 }}>{l.label.split('\n')[0]}</div>
                           <div className="font-mono">{l.amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</div>
                         </div>
                       ))}
                     </div>
                   </div>
-                  {/* Balance */}
-                  <div
-                    className="flex justify-between items-center px-2 py-1"
-                    style={{ borderTop: '1px solid var(--ink)', background: 'var(--paper)' }}
-                  >
-                    <span className="text-xs" style={{ color: 'var(--ink-2)' }}>Bal.</span>
+                  <div className="flex justify-between items-center px-2 py-1 border-t border-ink bg-paper">
+                    <span className="text-xs text-ink-2">Bal.</span>
                     <span className="font-mono text-xs font-semibold" style={{ color: bal >= 0 ? 'var(--positive)' : 'var(--negative)' }}>
                       {bal >= 0 ? '+' : ''}{formatMoney(bal)}
                     </span>
                   </div>
-                  {/* Note */}
                   {p.lines.length > 0 && (
-                    <div className="px-2 py-0.5 text-xs italic" style={{ background: 'var(--paper)', color: 'var(--muted)', fontSize: 10 }}>
+                    <div className="px-2 py-0.5 text-xs italic bg-paper text-muted" style={{ fontSize: 10 }}>
                       {drLines.length > 0 ? 'dropped on Dr' : 'auto-split'}
                     </div>
                   )}
@@ -365,8 +347,8 @@ export default function JournalPage() {
           </div>
         ) : (
           <div
-            className="rounded p-6 text-center text-xs mb-3"
-            style={{ border: '1.5px dashed var(--paper-edge)', color: 'var(--muted)' }}
+            className="rounded p-6 text-center text-xs mb-3 text-muted"
+            style={{ border: '1.5px dashed var(--paper-edge)' }}
           >
             Pin an account above, then drag a chip onto its Dr or Cr side
           </div>
@@ -374,19 +356,16 @@ export default function JournalPage() {
 
         {/* Footer balance bar */}
         {(totalDr > 0 || totalCr > 0) && (
-          <div
-            className="flex justify-between items-center px-3 py-2 rounded text-xs font-mono"
-            style={{ background: 'var(--paper)', border: '1px solid var(--paper-edge)' }}
-          >
+          <div className="flex justify-between items-center px-3 py-2 rounded text-xs font-mono bg-paper border border-paper-edge">
             <span>
               Σ Dr {formatMoney(totalDr)} &nbsp;·&nbsp; Σ Cr {formatMoney(totalCr)}
               {balanced ? (
-                <span className="ml-2" style={{ color: 'var(--positive)' }}>✓ balanced</span>
+                <span className="ml-2 text-positive">✓ balanced</span>
               ) : (
-                <span className="ml-2" style={{ color: 'var(--negative)' }}>✗ diff {formatMoney(Math.abs(totalDr - totalCr))}</span>
+                <span className="ml-2 text-negative">✗ diff {formatMoney(Math.abs(totalDr - totalCr))}</span>
               )}
             </span>
-            <span style={{ color: 'var(--muted)' }}>
+            <span className="text-muted">
               ⌘↑ post · ✉ pop chip back to tray · / search account
             </span>
           </div>
@@ -395,94 +374,90 @@ export default function JournalPage() {
 
       {/* Manual entry form */}
       {showForm && (
-        <form
-          onSubmit={handleManualSubmit}
-          className="rounded-lg p-4"
-          style={{ background: 'var(--surface)', border: '1px solid var(--paper-edge)' }}
-        >
+        <form onSubmit={handleManualSubmit} className="card p-4">
           <div className="text-sm font-medium mb-3">Manual entry</div>
           <div className="grid grid-cols-2 gap-3 mb-3">
             <div>
-              <label className="text-xs block mb-1" style={{ color: 'var(--ink-2)' }}>Date</label>
-              <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full rounded px-2 py-1.5 text-xs" style={{ border: '1px solid var(--paper-edge)', background: 'var(--paper)' }} />
+              <label className="field-label">Date</label>
+              <input type="date" value={date} onChange={e => setDate(e.target.value)} className="field" />
             </div>
             <div>
-              <label className="text-xs block mb-1" style={{ color: 'var(--ink-2)' }}>Description</label>
-              <input type="text" value={desc} onChange={e => setDesc(e.target.value)} required placeholder="e.g. Monthly rent" className="w-full rounded px-2 py-1.5 text-xs" style={{ border: '1px solid var(--paper-edge)', background: 'var(--paper)' }} />
+              <label className="field-label">Description</label>
+              <input type="text" value={desc} onChange={e => setDesc(e.target.value)} required placeholder="e.g. Monthly rent" className="field" />
             </div>
           </div>
           <table className="w-full text-xs mb-2">
             <thead>
-              <tr style={{ borderBottom: '1px solid var(--paper-edge)' }}>
-                <th className="text-left py-1.5 font-medium" style={{ color: 'var(--ink-2)' }}>Account</th>
-                <th className="text-right py-1.5 font-medium w-28" style={{ color: 'var(--ink-2)' }}>Debit</th>
-                <th className="text-right py-1.5 font-medium w-28" style={{ color: 'var(--ink-2)' }}>Credit</th>
+              <tr className="border-b border-paper-edge">
+                <th className="text-left py-1.5 font-medium text-ink-2">Account</th>
+                <th className="text-right py-1.5 font-medium w-28 text-ink-2">Debit</th>
+                <th className="text-right py-1.5 font-medium w-28 text-ink-2">Credit</th>
                 <th className="w-6" />
               </tr>
             </thead>
             <tbody>
               {lines.map((line, i) => (
-                <tr key={i} style={{ borderBottom: '1px solid var(--paper-edge)' }}>
+                <tr key={i} className="border-b border-paper-edge">
                   <td className="py-1">
                     <select value={line.account_id} onChange={e => {
                       if (e.target.value === '__add__') { setAddAccountTarget(i); setAddingAccount(true); return }
                       setLines(prev => prev.map((l, j) => j === i ? { ...l, account_id: e.target.value } : l))
-                    }} className="w-full text-xs rounded px-2 py-1" style={{ border: '1px solid var(--paper-edge)', background: 'var(--paper)' }}>
+                    }} className="field">
                       <option value="">Select account…</option>
                       {accounts.map(a => <option key={a.id} value={a.id}>{a.code} · {a.name}</option>)}
                       <option value="__add__">+ Add account…</option>
                     </select>
                   </td>
                   <td className="py-1 pl-2">
-                    <input type="number" step="0.01" min="0" value={line.debit} onChange={e => setLines(prev => prev.map((l, j) => j === i ? { ...l, debit: e.target.value, credit: '' } : l))} className="w-full text-right font-mono text-xs rounded px-2 py-1" style={{ border: '1px solid var(--paper-edge)', background: 'var(--paper)' }} />
+                    <input type="number" step="0.01" min="0" value={line.debit} onChange={e => setLines(prev => prev.map((l, j) => j === i ? { ...l, debit: e.target.value, credit: '' } : l))} className="field text-right" />
                   </td>
                   <td className="py-1 pl-2">
-                    <input type="number" step="0.01" min="0" value={line.credit} onChange={e => setLines(prev => prev.map((l, j) => j === i ? { ...l, credit: e.target.value, debit: '' } : l))} className="w-full text-right font-mono text-xs rounded px-2 py-1" style={{ border: '1px solid var(--paper-edge)', background: 'var(--paper)' }} />
+                    <input type="number" step="0.01" min="0" value={line.credit} onChange={e => setLines(prev => prev.map((l, j) => j === i ? { ...l, credit: e.target.value, debit: '' } : l))} className="field text-right" />
                   </td>
                   <td className="py-1 pl-1">
-                    {lines.length > 2 && <button type="button" onClick={() => setLines(prev => prev.filter((_, j) => j !== i))} style={{ color: 'var(--muted)' }}>×</button>}
+                    {lines.length > 2 && <button type="button" onClick={() => setLines(prev => prev.filter((_, j) => j !== i))} className="text-muted">×</button>}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
           <div className="flex items-center gap-3 mb-2">
-            <button type="button" onClick={() => setLines(prev => [...prev, { account_id: '', debit: '', credit: '' }])} className="text-xs" style={{ color: 'var(--accent)' }}>+ Add line</button>
+            <button type="button" onClick={() => setLines(prev => [...prev, { account_id: '', debit: '', credit: '' }])} className="text-xs text-accent">+ Add line</button>
           </div>
           <div className="flex items-center gap-3">
             <Button type="submit" size="sm" disabled={!manualBalanced || !desc}>Post entry</Button>
-            {!manualBalanced && manualDr + manualCr > 0 && <span className="text-xs" style={{ color: 'var(--negative)' }}>Diff: {formatMoney(Math.abs(manualDr - manualCr))}</span>}
-            {manualBalanced && <span className="text-xs" style={{ color: 'var(--positive)' }}>✓ balanced</span>}
+            {!manualBalanced && manualDr + manualCr > 0 && <span className="text-xs text-negative">Diff: {formatMoney(Math.abs(manualDr - manualCr))}</span>}
+            {manualBalanced && <span className="text-xs text-positive">✓ balanced</span>}
           </div>
         </form>
       )}
 
-      {error && <p className="text-xs" style={{ color: 'var(--negative)' }}>{error}</p>}
-      {saved && <p className="text-xs" style={{ color: 'var(--positive)' }}>{saved}</p>}
+      {error && <p className="text-xs text-negative">{error}</p>}
+      {saved && <p className="text-xs text-positive">{saved}</p>}
 
       {/* Journal list */}
       <div>
         <div className="text-sm font-medium mb-2">Posted entries</div>
-        <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--paper-edge)' }}>
+        <div className="card overflow-hidden">
           <table className="w-full text-xs">
-            <thead>
-              <tr style={{ background: 'var(--paper-edge)' }}>
+            <thead className="t-head">
+              <tr>
                 {['Date', 'Description', 'Source', 'Status'].map(h => (
-                  <th key={h} className="text-left px-3 py-2 font-medium" style={{ color: 'var(--ink-2)' }}>{h}</th>
+                  <th key={h} className="text-left">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {entries.map((entry, i) => (
-                <tr key={entry.id} style={{ borderBottom: '1px solid var(--paper-edge)', background: i % 2 === 0 ? 'var(--surface)' : 'var(--paper)' }}>
-                  <td className="px-3 py-2 font-mono">{entry.date}</td>
-                  <td className="px-3 py-2">{entry.description}</td>
-                  <td className="px-3 py-2 capitalize" style={{ color: 'var(--ink-2)' }}>{entry.source}</td>
-                  <td className="px-3 py-2"><Badge status={entry.is_posted ? 'posted' : 'unposted'} /></td>
+                <tr key={entry.id} className="t-row" style={{ background: i % 2 === 0 ? 'var(--surface)' : 'var(--paper)' }}>
+                  <td className="t-cell num">{entry.date}</td>
+                  <td className="t-cell">{entry.description}</td>
+                  <td className="t-cell capitalize text-ink-2">{entry.source}</td>
+                  <td className="t-cell"><Badge status={entry.is_posted ? 'posted' : 'unposted'} /></td>
                 </tr>
               ))}
               {entries.length === 0 && (
-                <tr><td colSpan={4} className="px-3 py-6 text-center" style={{ color: 'var(--muted)' }}>No entries yet</td></tr>
+                <tr className="t-empty"><td colSpan={4}>No entries yet</td></tr>
               )}
             </tbody>
           </table>

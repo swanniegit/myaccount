@@ -9,15 +9,15 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        paper: '#F6F0E4',
-        'paper-edge': '#EAE3D2',
-        ink: '#1A1A1A',
-        'ink-2': '#5A554A',
-        muted: '#B8B0A0',
-        accent: '#D97757',
-        positive: '#1F8A5B',
-        negative: '#C0392B',
-        surface: '#FFFFFF',
+        paper:        'var(--paper)',
+        'paper-edge': 'var(--paper-edge)',
+        ink:          'var(--ink)',
+        'ink-2':      'var(--ink-2)',
+        muted:        'var(--muted)',
+        accent:       'var(--accent)',
+        positive:     'var(--positive)',
+        negative:     'var(--negative)',
+        surface:      'var(--surface)',
       },
       fontFamily: {
         mono: ['"JetBrains Mono"', 'monospace'],

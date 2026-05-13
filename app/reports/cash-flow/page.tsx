@@ -69,52 +69,31 @@ export default function CashFlowPage() {
       <div className="flex items-start justify-between mb-1">
         <div>
           <h1 className="text-xl font-semibold">Reports · Cash Flow</h1>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--ink-2)' }}>{periodLabel}</p>
+          <p className="text-xs mt-0.5 text-ink-2">{periodLabel}</p>
         </div>
         <div className="flex gap-2 items-center">
           <MonthPicker value={period} onChange={setPeriod} />
-          <button
-            onClick={() => setYtd(v => !v)}
-            className="px-3 py-1.5 text-xs rounded"
-            style={{
-              border: ytd ? '1.5px solid var(--ink)' : '1px solid var(--paper-edge)',
-              color: ytd ? 'var(--ink)' : 'var(--ink-2)',
-              background: ytd ? 'var(--surface)' : 'transparent',
-              borderRadius: 999,
-            }}
-          >
-            FY YTD
-          </button>
+          <button onClick={() => setYtd(v => !v)} className="pill" data-active={ytd}>FY YTD</button>
         </div>
       </div>
 
       <div className="flex gap-1 mb-4 flex-wrap">
         {REPORT_TABS.map(tab => (
-          <Link
-            key={tab.label}
-            href={tab.href}
-            className="px-3 py-1 text-xs rounded font-medium"
-            style={{
-              background: tab.href === '/reports/cash-flow' ? 'var(--ink)' : 'var(--surface)',
-              color: tab.href === '/reports/cash-flow' ? '#fff' : 'var(--ink-2)',
-              border: `1px solid ${tab.href === '/reports/cash-flow' ? 'var(--ink)' : 'var(--paper-edge)'}`,
-              textDecoration: 'none',
-            }}
-          >
+          <Link key={tab.label} href={tab.href} className="pill no-underline" data-active={tab.href === '/reports/cash-flow'}>
             {tab.label}
           </Link>
         ))}
       </div>
 
       {error && (
-        <div className="text-xs px-3 py-2 rounded mb-4" style={{ background: 'var(--accent-soft)', color: 'var(--negative)', border: '1px solid var(--negative)' }}>
+        <div className="text-xs px-3 py-2 rounded mb-4 text-negative" style={{ background: 'var(--accent-soft)', border: '1px solid var(--negative)' }}>
           {error}
         </div>
       )}
 
-      <div className="rounded-lg p-4 mb-4" style={{ background: 'var(--surface)', border: '1px solid var(--paper-edge)' }}>
+      <div className="card p-4 mb-4">
         {loading ? (
-          <div className="rounded animate-pulse" style={{ height: 240, background: 'var(--paper-edge)' }} />
+          <div className="h-60 rounded animate-pulse bg-paper-edge" />
         ) : (
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={data} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
@@ -140,42 +119,33 @@ export default function CashFlowPage() {
         )}
       </div>
 
-      <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--paper-edge)' }}>
+      <div className="card overflow-hidden">
         <table className="w-full text-xs">
-          <thead>
-            <tr style={{ background: 'var(--paper-edge)' }}>
-              <th className="px-3 py-2 text-left font-medium" style={{ color: 'var(--ink-2)' }}>Date</th>
-              <th className="px-3 py-2 text-right font-medium w-32" style={{ color: 'var(--positive)' }}>Money in</th>
-              <th className="px-3 py-2 text-right font-medium w-32" style={{ color: 'var(--accent)' }}>Money out</th>
-              <th className="px-3 py-2 text-right font-medium w-32" style={{ color: 'var(--ink-2)' }}>Net</th>
+          <thead className="t-head">
+            <tr>
+              <th className="text-left">Date</th>
+              <th className="text-right w-32 text-positive">Money in</th>
+              <th className="text-right w-32 text-accent">Money out</th>
+              <th className="text-right w-32">Net</th>
             </tr>
           </thead>
           <tbody>
             {loading
               ? [...Array(6)].map((_, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid var(--paper-edge)' }}>
+                  <tr key={i} className="t-row">
                     {[...Array(4)].map((_, j) => (
-                      <td key={j} className="px-3 py-2">
-                        <div className="h-3 rounded animate-pulse" style={{ background: 'var(--paper-edge)' }} />
-                      </td>
+                      <td key={j} className="t-cell"><div className="h-3 rounded animate-pulse bg-paper-edge" /></td>
                     ))}
                   </tr>
                 ))
               : data.map((row, i) => {
                   const rowNet = row.in - row.out
                   return (
-                    <tr key={i} style={{ borderBottom: '1px solid var(--paper-edge)', background: 'var(--surface)' }}>
-                      <td className="px-3 py-2 font-mono" style={{ color: 'var(--ink-2)' }}>{row.date}</td>
-                      <td className="px-3 py-2 font-mono text-right" style={{ color: 'var(--positive)' }}>
-                        {row.in > 0 ? row.in.toLocaleString('en-ZA', { minimumFractionDigits: 2 }) : '—'}
-                      </td>
-                      <td className="px-3 py-2 font-mono text-right" style={{ color: 'var(--accent)' }}>
-                        {row.out > 0 ? row.out.toLocaleString('en-ZA', { minimumFractionDigits: 2 }) : '—'}
-                      </td>
-                      <td
-                        className="px-3 py-2 font-mono text-right"
-                        style={{ color: rowNet >= 0 ? 'var(--positive)' : 'var(--negative)' }}
-                      >
+                    <tr key={i} className="t-row">
+                      <td className="t-cell font-mono text-ink-2">{row.date}</td>
+                      <td className="t-cell num text-positive">{row.in > 0 ? row.in.toLocaleString('en-ZA', { minimumFractionDigits: 2 }) : '—'}</td>
+                      <td className="t-cell num text-accent">{row.out > 0 ? row.out.toLocaleString('en-ZA', { minimumFractionDigits: 2 }) : '—'}</td>
+                      <td className="t-cell num" style={{ color: rowNet >= 0 ? 'var(--positive)' : 'var(--negative)' }}>
                         {rowNet.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
                       </td>
                     </tr>
@@ -185,16 +155,9 @@ export default function CashFlowPage() {
           <tfoot>
             <tr style={{ background: 'var(--accent-soft)', borderTop: '2px solid var(--paper-edge)' }}>
               <td className="px-3 py-2 font-semibold">Totals</td>
-              <td className="px-3 py-2 font-mono font-semibold text-right" style={{ color: 'var(--positive)' }}>
-                {loading ? '—' : totalIn.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
-              </td>
-              <td className="px-3 py-2 font-mono font-semibold text-right" style={{ color: 'var(--accent)' }}>
-                {loading ? '—' : totalOut.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
-              </td>
-              <td
-                className="px-3 py-2 font-mono font-semibold text-right"
-                style={{ color: net >= 0 ? 'var(--positive)' : 'var(--negative)' }}
-              >
+              <td className="px-3 py-2 num font-semibold text-positive">{loading ? '—' : totalIn.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</td>
+              <td className="px-3 py-2 num font-semibold text-accent">{loading ? '—' : totalOut.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</td>
+              <td className="px-3 py-2 num font-semibold" style={{ color: net >= 0 ? 'var(--positive)' : 'var(--negative)' }}>
                 {loading ? '—' : net.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
               </td>
             </tr>

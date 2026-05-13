@@ -10,7 +10,6 @@ interface LeaveData {
 
 const LEAVE_TYPES = ['annual', 'sick', 'family', 'maternity', 'parental']
 
-// Group balances by employee
 function byEmployee(balances: LeaveData['balances']) {
   const map = new Map<string, { emp: LeaveData['balances'][0]['employee']; rows: LeaveData['balances'] }>()
   for (const b of balances) {
@@ -76,7 +75,7 @@ export default function LeavePage() {
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <div className="text-xs" style={{ color: 'var(--ink-2)' }}>
+        <div className="text-xs text-ink-2">
           BCEA · annual 15 · sick 30/3yr · family 3 · maternity 4mo (UIF)
         </div>
         <Button size="sm" onClick={() => setShowForm(!showForm)}>+ Leave request</Button>
@@ -84,24 +83,20 @@ export default function LeavePage() {
 
       {/* Pending requests */}
       {pending.length > 0 && (
-        <div
-          className="rounded-lg p-3 mb-4"
-          style={{ border: '1px solid var(--accent)', background: 'var(--accent-soft)' }}
-        >
+        <div className="card-accent p-3 mb-4">
           <div className="text-xs font-semibold mb-2">Pending approval ({pending.length})</div>
           <div className="flex flex-col gap-1.5">
             {pending.map(r => (
               <div
                 key={r.id}
-                className="flex justify-between items-center rounded p-2"
-                style={{ background: 'var(--surface)', border: '1px solid var(--paper-edge)' }}
+                className="flex justify-between items-center rounded p-2 bg-surface border border-paper-edge"
               >
                 <div className="text-xs">
                   <span className="font-medium capitalize">{r.type}</span>
-                  <span className="ml-2" style={{ color: 'var(--ink-2)' }}>
+                  <span className="ml-2 text-ink-2">
                     {r.from_date} → {r.to_date} · {r.days} days
                   </span>
-                  {r.notes && <span className="ml-2 italic" style={{ color: 'var(--muted)' }}>{r.notes}</span>}
+                  {r.notes && <span className="ml-2 italic text-muted">{r.notes}</span>}
                 </div>
                 <div className="flex gap-1">
                   <Button size="sm" onClick={() => updateLeaveRequest(r.id, 'approve')}>Approve</Button>
@@ -115,72 +110,63 @@ export default function LeavePage() {
 
       {/* New request form */}
       {showForm && (
-        <div
-          className="rounded-lg p-4 mb-4"
-          style={{ border: '1px solid var(--accent)', background: 'var(--accent-soft)' }}
-        >
+        <div className="card-accent p-4 mb-4">
           <div className="text-sm font-semibold mb-3">New leave request</div>
           <div className="grid grid-cols-3 gap-3 mb-3">
             <div>
-              <label className="block text-xs mb-1" style={{ color: 'var(--ink-2)' }}>Employee</label>
+              <label className="field-label">Employee</label>
               <select
                 value={form.employee_id}
                 onChange={e => setForm(f => ({ ...f, employee_id: e.target.value }))}
-                className="w-full px-2.5 py-1.5 text-xs rounded border"
-                style={{ borderColor: 'var(--paper-edge)', background: 'var(--paper)' }}
+                className="field"
               >
                 <option value="">Select…</option>
                 {employees.map(e => <option key={e.id} value={e.id}>{e.full_name}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs mb-1" style={{ color: 'var(--ink-2)' }}>Type</label>
+              <label className="field-label">Type</label>
               <select
                 value={form.type}
                 onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
-                className="w-full px-2.5 py-1.5 text-xs rounded border"
-                style={{ borderColor: 'var(--paper-edge)', background: 'var(--paper)' }}
+                className="field"
               >
                 {LEAVE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs mb-1" style={{ color: 'var(--ink-2)' }}>Days</label>
+              <label className="field-label">Days</label>
               <input
                 type="number"
                 value={form.days}
                 onChange={e => setForm(f => ({ ...f, days: e.target.value }))}
-                className="w-full px-2.5 py-1.5 text-xs rounded border"
-                style={{ borderColor: 'var(--paper-edge)', background: 'var(--paper)' }}
+                className="field"
               />
             </div>
             <div>
-              <label className="block text-xs mb-1" style={{ color: 'var(--ink-2)' }}>From date</label>
+              <label className="field-label">From date</label>
               <input
                 type="date"
                 value={form.from_date}
                 onChange={e => setForm(f => ({ ...f, from_date: e.target.value }))}
-                className="w-full px-2.5 py-1.5 text-xs rounded border"
-                style={{ borderColor: 'var(--paper-edge)', background: 'var(--paper)' }}
+                className="field"
               />
             </div>
             <div>
-              <label className="block text-xs mb-1" style={{ color: 'var(--ink-2)' }}>To date</label>
+              <label className="field-label">To date</label>
               <input
                 type="date"
                 value={form.to_date}
                 onChange={e => setForm(f => ({ ...f, to_date: e.target.value }))}
-                className="w-full px-2.5 py-1.5 text-xs rounded border"
-                style={{ borderColor: 'var(--paper-edge)', background: 'var(--paper)' }}
+                className="field"
               />
             </div>
             <div>
-              <label className="block text-xs mb-1" style={{ color: 'var(--ink-2)' }}>Notes</label>
+              <label className="field-label">Notes</label>
               <input
                 value={form.notes}
                 onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-                className="w-full px-2.5 py-1.5 text-xs rounded border"
-                style={{ borderColor: 'var(--paper-edge)', background: 'var(--paper)' }}
+                className="field"
               />
             </div>
           </div>
@@ -194,35 +180,35 @@ export default function LeavePage() {
       )}
 
       {/* Leave balances table */}
-      <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--paper-edge)' }}>
+      <div className="card overflow-hidden">
         <table className="w-full text-xs">
           <thead>
-            <tr style={{ background: 'var(--paper)', borderBottom: '2px solid var(--ink)' }}>
-              <th className="px-3 py-2 text-left font-medium" style={{ color: 'var(--ink-2)' }}>Employee</th>
-              <th className="px-3 py-2 text-center font-medium" colSpan={3} style={{ color: 'var(--ink-2)' }}>Annual · 15/yr</th>
-              <th className="px-3 py-2 text-center font-medium" colSpan={2} style={{ color: 'var(--ink-2)' }}>Sick · 30/3yr</th>
-              <th className="px-3 py-2 text-center font-medium" style={{ color: 'var(--ink-2)' }}>Family</th>
-              <th className="px-3 py-2 text-left font-medium" style={{ color: 'var(--ink-2)' }}>Pending</th>
+            <tr className="border-b-2 border-ink bg-paper">
+              <th className="px-3 py-2 text-left font-medium text-ink-2">Employee</th>
+              <th className="px-3 py-2 text-center font-medium text-ink-2" colSpan={3}>Annual · 15/yr</th>
+              <th className="px-3 py-2 text-center font-medium text-ink-2" colSpan={2}>Sick · 30/3yr</th>
+              <th className="px-3 py-2 text-center font-medium text-ink-2">Family</th>
+              <th className="px-3 py-2 text-left font-medium text-ink-2">Pending</th>
             </tr>
-            <tr style={{ background: 'var(--paper)', borderBottom: '1px solid var(--paper-edge)' }}>
+            <tr className="border-b border-paper-edge bg-paper">
               <th />
-              <th className="px-2 py-1 text-center font-normal text-xs" style={{ color: 'var(--muted)' }}>Accrued</th>
-              <th className="px-2 py-1 text-center font-normal text-xs" style={{ color: 'var(--muted)' }}>Taken</th>
-              <th className="px-2 py-1 text-center font-normal text-xs" style={{ color: 'var(--muted)' }}>Balance</th>
-              <th className="px-2 py-1 text-center font-normal text-xs" style={{ color: 'var(--muted)' }}>Taken</th>
-              <th className="px-2 py-1 text-center font-normal text-xs" style={{ color: 'var(--muted)' }}>Balance</th>
-              <th className="px-2 py-1 text-center font-normal text-xs" style={{ color: 'var(--muted)' }}>Balance</th>
+              <th className="px-2 py-1 text-center font-normal text-xs text-muted">Accrued</th>
+              <th className="px-2 py-1 text-center font-normal text-xs text-muted">Taken</th>
+              <th className="px-2 py-1 text-center font-normal text-xs text-muted">Balance</th>
+              <th className="px-2 py-1 text-center font-normal text-xs text-muted">Taken</th>
+              <th className="px-2 py-1 text-center font-normal text-xs text-muted">Balance</th>
+              <th className="px-2 py-1 text-center font-normal text-xs text-muted">Balance</th>
               <th />
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={8} className="px-3 py-8 text-center" style={{ color: 'var(--muted)' }}>Loading…</td>
+                <td colSpan={8} className="px-3 py-8 text-center text-muted">Loading…</td>
               </tr>
             ) : groups.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-3 py-8 text-center" style={{ color: 'var(--muted)' }}>
+                <td colSpan={8} className="px-3 py-8 text-center text-muted">
                   No leave balances yet. They are created when employees are added to a period.
                 </td>
               </tr>
@@ -235,12 +221,8 @@ export default function LeavePage() {
                   r => r.employee_id === g.emp?.id && r.status === 'pending'
                 )
                 return (
-                  <tr
-                    key={g.emp?.id}
-                    className="border-b"
-                    style={{ borderColor: 'var(--paper-edge)', background: 'var(--surface)' }}
-                  >
-                    <td className="px-3 py-2 font-medium">{g.emp?.full_name ?? '—'}</td>
+                  <tr key={g.emp?.id} className="t-row">
+                    <td className="t-cell font-medium">{g.emp?.full_name ?? '—'}</td>
                     <td className="px-2 py-2 text-center font-mono">{ann.accrued}</td>
                     <td className="px-2 py-2 text-center font-mono">{ann.taken}</td>
                     <td className="px-2 py-2 text-center font-mono font-semibold" style={{ color: ann.balance < 3 ? '#c0392b' : 'inherit' }}>
@@ -249,7 +231,7 @@ export default function LeavePage() {
                     <td className="px-2 py-2 text-center font-mono">{sick.taken}</td>
                     <td className="px-2 py-2 text-center font-mono font-semibold">{sick.balance}</td>
                     <td className="px-2 py-2 text-center font-mono">{family.balance}</td>
-                    <td className="px-3 py-2" style={{ color: empPending.length ? 'var(--accent)' : 'var(--muted)' }}>
+                    <td className="t-cell" style={{ color: empPending.length ? 'var(--accent)' : 'var(--muted)' }}>
                       {empPending.length
                         ? `${empPending.reduce((s, r) => s + Number(r.days), 0)} days ⏳`
                         : '—'}
@@ -262,7 +244,7 @@ export default function LeavePage() {
         </table>
       </div>
 
-      <div className="mt-3 text-xs" style={{ color: 'var(--muted)', fontStyle: 'italic' }}>
+      <div className="mt-3 text-xs text-muted italic">
         maternity (4mo) is UIF-claimable · system pre-fills UI19 form when requested
       </div>
     </div>

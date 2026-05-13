@@ -31,8 +31,6 @@ export default function TrialBalancePage() {
       if (!accounts || !lines) return
 
       const result: TBRow[] = []
-      let totalDr = 0
-      let totalCr = 0
 
       for (const acc of accounts) {
         const accLines = lines.filter(l => l.account_id === acc.id)
@@ -45,8 +43,6 @@ export default function TrialBalancePage() {
         const tbDebit = acc.normal_balance === 'debit' && bal > 0 ? bal : (acc.normal_balance === 'credit' && bal < 0 ? Math.abs(bal) : 0)
         const tbCredit = acc.normal_balance === 'credit' && bal > 0 ? bal : (acc.normal_balance === 'debit' && bal < 0 ? Math.abs(bal) : 0)
 
-        totalDr += tbDebit
-        totalCr += tbCredit
         result.push({ account: acc, debit: tbDebit, credit: tbCredit })
       }
 
@@ -56,52 +52,33 @@ export default function TrialBalancePage() {
     load()
   }, [])
 
-  const totalDebit = rows.reduce((s, r) => s + r.debit, 0)
+  const totalDebit  = rows.reduce((s, r) => s + r.debit, 0)
   const totalCredit = rows.reduce((s, r) => s + r.credit, 0)
-  const isBalanced = Math.abs(totalDebit - totalCredit) < 0.01
-
-  // Group summaries
-  const sumByType = (type: string) => rows.filter(r => r.account.type === type).reduce((s, r) => s + r.debit + r.credit, 0)
+  const isBalanced  = Math.abs(totalDebit - totalCredit) < 0.01
 
   return (
     <div className="p-5 max-w-4xl">
       <div className="flex items-start justify-between mb-1">
         <div>
           <h1 className="text-xl font-semibold">Reports · Trial Balance</h1>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--ink-2)' }}>
+          <p className="text-xs mt-0.5 text-ink-2">
             {new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })} · IFRS for SMEs
           </p>
         </div>
         <div className="flex gap-2">
-          <button className="px-3 py-1.5 rounded text-xs" style={{ border: '1.5px solid var(--ink)', color: 'var(--ink)', borderRadius: 999 }}>
-            Compare vs Feb
-          </button>
-          <button className="px-3 py-1.5 rounded text-xs" style={{ border: '1px solid var(--paper-edge)', color: 'var(--ink-2)' }}>
-            Export PDF
-          </button>
+          <button className="btn btn-secondary text-xs">Compare vs Feb</button>
+          <button className="btn btn-ghost text-xs">Export PDF</button>
         </div>
       </div>
 
-      {/* Report type tabs */}
       <div className="flex gap-1 mb-4 flex-wrap">
         {REPORT_TABS.map(tab => (
-          <Link
-            key={tab.label}
-            href={tab.href}
-            className="px-3 py-1 text-xs rounded font-medium"
-            style={{
-              background: tab.href === '/reports/trial-balance' ? 'var(--ink)' : 'var(--surface)',
-              color: tab.href === '/reports/trial-balance' ? '#fff' : 'var(--ink-2)',
-              border: `1px solid ${tab.href === '/reports/trial-balance' ? 'var(--ink)' : 'var(--paper-edge)'}`,
-              textDecoration: 'none',
-            }}
-          >
+          <Link key={tab.label} href={tab.href} className="pill no-underline" data-active={tab.href === '/reports/trial-balance'}>
             {tab.label}
           </Link>
         ))}
       </div>
 
-      {/* Type summary cards */}
       <div className="grid grid-cols-5 gap-2 mb-4">
         {[
           { type: 'asset', label: 'Assets' },
@@ -112,55 +89,46 @@ export default function TrialBalancePage() {
         ].map(({ type, label }) => {
           const sum = rows.filter(r => r.account.type === type).reduce((s, r) => s + r.debit + r.credit, 0)
           return (
-            <div key={type} className="rounded-lg p-3" style={{ background: 'var(--surface)', border: '1px solid var(--paper-edge)' }}>
-              <div className="text-xs mb-1" style={{ color: 'var(--ink-2)' }}>{label}</div>
-              <div className="font-mono text-sm font-bold">
+            <div key={type} className="card p-3">
+              <div className="text-xs mb-1 text-ink-2">{label}</div>
+              <div className="num text-sm font-bold">
                 {loading ? '—' : `R ${sum.toLocaleString('en-ZA', { minimumFractionDigits: 0 })}`}
               </div>
-              <div className="text-xs mt-0.5" style={{ color: 'var(--accent)', fontSize: 10 }}>+8%</div>
+              <div className="text-xs mt-0.5 text-accent" style={{ fontSize: 10 }}>+8%</div>
             </div>
           )
         })}
       </div>
 
-      {/* Table */}
-      <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--paper-edge)' }}>
+      <div className="card overflow-hidden">
         <table className="w-full text-xs">
-          <thead>
-            <tr style={{ background: 'var(--paper-edge)' }}>
-              <th className="px-3 py-2 text-left font-medium w-16" style={{ color: 'var(--ink-2)' }}>Code</th>
-              <th className="px-3 py-2 text-left font-medium" style={{ color: 'var(--ink-2)' }}>Account</th>
-              <th className="px-3 py-2 text-right font-medium w-28" style={{ color: 'var(--ink-2)' }}>Debit</th>
-              <th className="px-3 py-2 text-right font-medium w-28" style={{ color: 'var(--ink-2)' }}>Credit</th>
-              <th className="px-3 py-2 text-right font-medium w-16" style={{ color: 'var(--ink-2)' }}>vs Feb</th>
+          <thead className="t-head">
+            <tr>
+              <th className="text-left w-16">Code</th>
+              <th className="text-left">Account</th>
+              <th className="text-right w-28">Debit</th>
+              <th className="text-right w-28">Credit</th>
+              <th className="text-right w-16">vs Feb</th>
             </tr>
           </thead>
           <tbody>
             {loading
               ? [...Array(8)].map((_, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid var(--paper-edge)' }}>
+                  <tr key={i} className="t-row">
                     {[...Array(5)].map((_, j) => (
-                      <td key={j} className="px-3 py-2">
-                        <div className="h-3 rounded animate-pulse" style={{ background: 'var(--paper-edge)' }} />
+                      <td key={j} className="t-cell">
+                        <div className="h-3 rounded animate-pulse bg-paper-edge" />
                       </td>
                     ))}
                   </tr>
                 ))
               : rows.map(row => (
-                  <tr
-                    key={row.account.id}
-                    className="cursor-pointer hover:opacity-80"
-                    style={{ borderBottom: '1px solid var(--paper-edge)', background: 'var(--surface)' }}
-                  >
-                    <td className="px-3 py-2 font-mono" style={{ color: 'var(--ink-2)' }}>{row.account.code}</td>
-                    <td className="px-3 py-2">{row.account.name}</td>
-                    <td className="px-3 py-2 font-mono text-right">
-                      {row.debit > 0 ? row.debit.toLocaleString('en-ZA', { minimumFractionDigits: 2 }) : '—'}
-                    </td>
-                    <td className="px-3 py-2 font-mono text-right" style={{ color: 'var(--ink-2)' }}>
-                      {row.credit > 0 ? row.credit.toLocaleString('en-ZA', { minimumFractionDigits: 2 }) : '—'}
-                    </td>
-                    <td className="px-3 py-2 text-right text-xs" style={{ color: 'var(--accent)' }}>▲</td>
+                  <tr key={row.account.id} className="t-row cursor-pointer hover:opacity-80">
+                    <td className="t-cell font-mono text-ink-2">{row.account.code}</td>
+                    <td className="t-cell">{row.account.name}</td>
+                    <td className="t-cell num">{row.debit > 0 ? row.debit.toLocaleString('en-ZA', { minimumFractionDigits: 2 }) : '—'}</td>
+                    <td className="t-cell num text-ink-2">{row.credit > 0 ? row.credit.toLocaleString('en-ZA', { minimumFractionDigits: 2 }) : '—'}</td>
+                    <td className="t-cell text-right text-accent">▲</td>
                   </tr>
                 ))}
           </tbody>
@@ -168,12 +136,8 @@ export default function TrialBalancePage() {
             <tr style={{ background: 'var(--accent-soft)', borderTop: '2px solid var(--paper-edge)' }}>
               <td />
               <td className="px-3 py-2 font-semibold">Totals</td>
-              <td className="px-3 py-2 font-mono font-semibold text-right">
-                {totalDebit.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
-              </td>
-              <td className="px-3 py-2 font-mono font-semibold text-right">
-                {totalCredit.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
-              </td>
+              <td className="px-3 py-2 num font-semibold">{totalDebit.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</td>
+              <td className="px-3 py-2 num font-semibold">{totalCredit.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</td>
               <td />
             </tr>
           </tfoot>
@@ -181,11 +145,10 @@ export default function TrialBalancePage() {
       </div>
 
       <div
-        className="mt-2 px-3 py-1.5 text-xs rounded inline-flex items-center gap-2"
+        className="mt-2 px-3 py-1.5 text-xs rounded inline-flex items-center gap-2 italic"
         style={{
           border: `1px dashed ${isBalanced ? 'var(--positive)' : 'var(--negative)'}`,
           color: isBalanced ? 'var(--positive)' : 'var(--negative)',
-          fontStyle: 'italic',
         }}
       >
         {isBalanced ? '✓ Balanced' : '✗ Unbalanced'} · click any row to see the T-account behind it
