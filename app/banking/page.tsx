@@ -43,7 +43,7 @@ export default function BankingPage() {
       .select('id, code, name, type, sub_type, is_vat_account, normal_balance, parent_id')
       .eq('is_active', true)
       .order('code')
-    setAccounts(data ?? [])
+    setAccounts((data ?? []) as Account[])
   }
 
   async function loadTransactions() {
