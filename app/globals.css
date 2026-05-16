@@ -163,6 +163,10 @@ table { border-collapse: collapse; }
     color: #fff;
     border-color: var(--ink);
   }
+  .pill:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
 
   /* Slide-in sheet */
   .sheet-overlay {

@@ -9,12 +9,15 @@ import Badge from '@/components/ui/Badge'
 import MonthPicker, { currentMonth, monthRange, type MonthValue } from '@/components/ui/MonthPicker'
 
 const STATUS_TABS = ['All', 'Draft', 'Sent', 'Paid', 'Overdue']
+const PAGE_SIZE = 20
 
 export default function SalesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [filter, setFilter]     = useState('All')
   const [period, setPeriod]     = useState<MonthValue>(currentMonth())
   const [loading, setLoading]   = useState(true)
+  const [search, setSearch]     = useState('')
+  const [page, setPage]         = useState(1)
 
   const { start, end } = monthRange(period)
 
@@ -34,8 +37,19 @@ export default function SalesPage() {
       })
   }, [start, end])
 
-  const displayed  = filter === 'All' ? invoices : invoices.filter(i => i.status === filter.toLowerCase())
-  const countOf    = (s: string) => invoices.filter(i => i.status === s.toLowerCase()).length
+  useEffect(() => { setPage(1) }, [filter, search, period])
+
+  const statusFiltered = filter === 'All' ? invoices : invoices.filter(i => i.status === filter.toLowerCase())
+  const displayed = search.trim() === ''
+    ? statusFiltered
+    : statusFiltered.filter(i =>
+        (i as any).contact?.name?.toLowerCase().includes(search.toLowerCase()) ||
+        i.number?.toLowerCase().includes(search.toLowerCase())
+      )
+
+  const totalPages  = Math.max(1, Math.ceil(displayed.length / PAGE_SIZE))
+  const paginated   = displayed.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const countOf     = (s: string) => invoices.filter(i => i.status === s.toLowerCase()).length
   const outstanding = invoices.filter(i => ['sent','overdue'].includes(i.status)).reduce((s,i) => s + Number(i.total), 0)
   const overdue     = invoices.filter(i => i.status === 'overdue').reduce((s,i) => s + Number(i.total), 0)
   const paid        = invoices.filter(i => i.status === 'paid').reduce((s,i) => s + Number(i.total), 0)
@@ -78,6 +92,21 @@ export default function SalesPage() {
         </div>
       </div>
 
+      <div className="flex justify-between items-center mb-2 gap-3">
+        <div className="field-wrap w-64">
+          <input
+            type="search"
+            placeholder="Search customer or invoice #…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+        <span className="text-xs text-ink-2">
+          {displayed.length} {displayed.length === 1 ? 'invoice' : 'invoices'}
+          {totalPages > 1 && ` · page ${page} of ${totalPages}`}
+        </span>
+      </div>
+
       <div className="card overflow-hidden">
         <table className="w-full">
           <thead className="t-head">
@@ -98,7 +127,7 @@ export default function SalesPage() {
                     ))}
                   </tr>
                 ))
-              : displayed.map(inv => (
+              : paginated.map(inv => (
                   <tr key={inv.id} className="t-row" data-warning={inv.status === 'overdue'}>
                     <td className="t-cell t-cell-accent">
                       <Link href={`/sales/${inv.id}`} className="t-accent">{inv.number}</Link>
@@ -118,12 +147,52 @@ export default function SalesPage() {
                 ))}
             {!loading && displayed.length === 0 && (
               <tr className="t-empty">
-                <td colSpan={8}>No invoices this period · <Link href="/sales/new" className="t-accent">create one</Link></td>
+                <td colSpan={8}>No invoices found · <Link href="/sales/new" className="t-accent">create one</Link></td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-3">
+          <button
+            className="pill"
+            disabled={page === 1}
+            onClick={() => setPage(p => p - 1)}
+          >
+            ← Prev
+          </button>
+          {Array.from({ length: totalPages }, (_, i) => i + 1)
+            .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+            .reduce<(number | '…')[]>((acc, p, idx, arr) => {
+              if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('…')
+              acc.push(p)
+              return acc
+            }, [])
+            .map((p, i) =>
+              p === '…'
+                ? <span key={`ellipsis-${i}`} className="text-xs text-ink-2 px-1">…</span>
+                : <button
+                    key={p}
+                    className="pill"
+                    data-active={page === p}
+                    onClick={() => setPage(p as number)}
+                  >
+                    {p}
+                  </button>
+            )
+          }
+          <button
+            className="pill"
+            disabled={page === totalPages}
+            onClick={() => setPage(p => p + 1)}
+          >
+            Next →
+          </button>
+        </div>
+      )}
+
       <p className="text-xs mt-2 text-right text-muted italic">SARS-compliant tax invoice fields auto-populated</p>
     </div>
   )
