@@ -23,7 +23,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Transaction not found' }, { status: 404 })
   }
 
-  const bankGlAccountId = (txn.acct_bank_accounts as { account_id: string | null })?.account_id
+  const bankAcct = Array.isArray(txn.acct_bank_accounts) ? txn.acct_bank_accounts[0] : txn.acct_bank_accounts
+  const bankGlAccountId = (bankAcct as { account_id: string | null } | null)?.account_id
   if (!bankGlAccountId) {
     return NextResponse.json({ error: 'Bank account has no GL account linked' }, { status: 400 })
   }
