@@ -33,7 +33,7 @@ export default function TAccountBoard({ pinned, dragTarget, onDragTarget, onDrop
           onUnpin={onUnpin}
         />
       ))}
-    </motion>
+    </div>
   )
 }
 
@@ -82,8 +82,8 @@ function TAccountCard({
           {bal >= 0 ? '+' : ''}
           {formatMoney(bal)}
         </span>
-      </motion>
-    </motion>
+      </div>
+    </div>
   )
 }
 
@@ -116,12 +116,12 @@ function DropSide({
       <div className={`text-xs font-medium mb-1 ${side === 'Dr' ? 'text-accent' : 'text-ink-2'}`}>{side.toUpperCase()}</div>
       {lines.map((l, i) => (
         <div key={i} className="text-xs">
-          <div className="text-muted" style={{ fontSize: 10 }}>{l.label.split('\n')[0]}</motion>
+          <div className="text-muted" style={{ fontSize: 10 }}>{l.label.split('\n')[0]}</div>
           <div className={`font-mono ${side === 'Dr' ? 'text-accent' : ''}`}>
             {l.amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
-          </motion>
-        </motion>
+          </div>
+        </div>
       ))}
-    </motion>
+    </div>
   )
 }

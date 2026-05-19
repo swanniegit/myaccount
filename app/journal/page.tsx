@@ -14,7 +14,7 @@ export default function JournalPage() {
 
   return (
     <div className="p-5 flex flex-col gap-4">
-      <motion className="flex items-start justify-between">
+      <div className="flex items-start justify-between">
         <div>
           <h1 className="text-xl font-semibold">Journal Entry</h1>
           <p className="text-xs mt-0.5 text-ink-2">Drag-to-post · the headline interaction</p>
@@ -22,7 +22,7 @@ export default function JournalPage() {
         <Button variant="ghost" size="sm" onClick={() => j.setShowForm(v => !v)}>
           Manual entry
         </Button>
-      </motion>
+      </div>
 
       <div className="card p-4">
         <div className="flex items-center justify-between mb-2">
@@ -185,11 +185,11 @@ function AccountPinSelect({
           <div>
             <label className="field-label">Code *</label>
             <input value={newAccCode} onChange={e => onNewAccCode(e.target.value)} placeholder="e.g. 6100" className="field" style={{ width: 80 }} />
-          </motion>
+          </div>
           <div className="flex-1">
             <label className="field-label">Name *</label>
             <input value={newAccName} onChange={e => onNewAccName(e.target.value)} placeholder="Account name" className="field" />
-          </motion>
+          </div>
           <div>
             <label className="field-label">Type</label>
             <select value={newAccType} onChange={e => onNewAccType(e.target.value)} className="field" style={{ width: 'auto' }}>
@@ -199,15 +199,15 @@ function AccountPinSelect({
               <option value="revenue">Revenue</option>
               <option value="expense">Expense</option>
             </select>
-          </motion>
+          </div>
           <button type="button" onClick={onSave} className="btn btn-sm btn-primary">
             Save
           </button>
           <button type="button" onClick={onCancel} className="btn btn-sm btn-ghost">
             Cancel
           </button>
-        </motion>
+        </div>
       )}
-    </motion>
+    </div>
   )
 }

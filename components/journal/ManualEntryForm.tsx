@@ -150,15 +150,15 @@ export default function ManualEntryForm({
       </div>
       {addingAccount && (
         <div className="flex gap-2 items-end p-3 rounded bg-paper border border-accent mb-3">
-          <motion>
+          <div>
             <label className="field-label">Code *</label>
             <input value={newAccCode} onChange={e => onNewAccCode(e.target.value)} placeholder="e.g. 6100" className="field" style={{ width: 80 }} />
-          </motion>
+          </div>
           <div className="flex-1">
             <label className="field-label">Name *</label>
             <input value={newAccName} onChange={e => onNewAccName(e.target.value)} placeholder="Account name" className="field" />
-          </motion>
-          <motion>
+          </div>
+          <div>
             <label className="field-label">Type</label>
             <select value={newAccType} onChange={e => onNewAccType(e.target.value)} className="field" style={{ width: 'auto' }}>
               <option value="asset">Asset</option>
@@ -167,14 +167,14 @@ export default function ManualEntryForm({
               <option value="revenue">Revenue</option>
               <option value="expense">Expense</option>
             </select>
-          </motion>
+          </div>
           <button type="button" onClick={onSaveNewAccount} className="btn btn-sm btn-primary">
             Save
           </button>
           <button type="button" onClick={onCancelAddAccount} className="btn btn-sm btn-ghost">
             Cancel
           </button>
-        </motion>
+        </div>
       )}
       <div className="flex items-center gap-3">
         <Button type="submit" size="sm" disabled={!manualBalanced || !desc}>
@@ -184,7 +184,7 @@ export default function ManualEntryForm({
           <span className="text-xs text-negative">Diff: {formatMoney(Math.abs(manualDr - manualCr))}</span>
         )}
         {manualBalanced && <span className="text-xs text-positive">✓ balanced</span>}
-      </motion>
+      </div>
     </form>
   )
 }
