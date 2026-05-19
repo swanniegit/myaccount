@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
-import { getAccountId } from '@/lib/livehis-push/account-lookup'
+import { recordPaymentJournal } from '@/lib/livehis-push/record-payment-journal'
 import type { PushPaymentRequest } from '@/lib/livehis-push/types'
 import { requireApiKey } from '@/lib/livehis-push/auth'
 
@@ -36,37 +36,12 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // DR 1010 (bank), CR 1100 (AR) for all payment methods
-    const [bankId, arId] = await Promise.all([
-      getAccountId(supabase, '1010'),
-      getAccountId(supabase, '1100'),
-    ])
-
-    const description = `Payment for invoice ${invoice_external_ref}${reference ? ` — ${reference}` : ''}`
-
-    const { data: entry, error: entryErr } = await supabase
-      .from('acct_journal_entries')
-      .insert({
-        date: payment_date,
-        description,
-        reference: reference ?? null,
-        source: 'invoice',
-        is_posted: true,
-      })
-      .select('id')
-      .single()
-
-    if (entryErr || !entry) {
-      throw new Error(`Failed to create payment journal: ${entryErr?.message ?? 'no row'}`)
-    }
-
-    const { error: linesErr } = await supabase.from('acct_journal_lines').insert([
-      { entry_id: entry.id, account_id: bankId, debit: amount, credit: 0,      description },
-      { entry_id: entry.id, account_id: arId,   debit: 0,      credit: amount, description },
-    ])
-    if (linesErr) {
-      throw new Error(`Failed to insert payment journal lines: ${linesErr.message}`)
-    }
+    await recordPaymentJournal(supabase, {
+      payment_date,
+      amount,
+      invoiceExternalRef: invoice_external_ref,
+      reference,
+    })
 
     const newStatus = amount >= invoice.total ? 'paid' : invoice.status
     const { error: updateErr } = await supabase
