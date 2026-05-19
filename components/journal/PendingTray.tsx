@@ -16,7 +16,7 @@ export default function PendingTray({ chips, dragging, onDragStart, onDragEnd }:
     >
       <span className="text-xs shrink-0 text-ink-2">Pending tray →</span>
       {chips.map(chip => (
-        <motion
+        <div
           key={chip.id}
           draggable
           onDragStart={() => onDragStart(chip)}
@@ -40,6 +40,6 @@ export default function PendingTray({ chips, dragging, onDragStart, onDragEnd }:
         </div>
       ))}
       {chips.length === 0 && <span className="text-xs text-muted">All posted ✓</span>}
-    </motion>
+    </div>
   )
 }
