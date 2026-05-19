@@ -1,7 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { round2 } from '@/lib/utils'
 import type { CreateBillInput } from './types'
-
-function round2(n: number) { return Math.round(n * 100) / 100 }
 
 export async function createBill(supabase: SupabaseClient, input: CreateBillInput): Promise<string> {
   const subtotal   = round2(input.lines.reduce((s, l) => s + l.line_total, 0))

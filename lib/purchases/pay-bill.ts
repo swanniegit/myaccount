@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getAccountId } from '@/lib/livehis-push/account-lookup'
+import { recordJournalEntry } from '@/lib/ledger'
 
 // DR Accounts Payable / CR Bank
 export async function payBill(
@@ -15,25 +16,16 @@ export async function payBill(
     getAccountId(supabase, bankCode),
   ])
 
-  const { data: entry, error: entryErr } = await supabase
-    .from('acct_journal_entries')
-    .insert({
-      date: paymentDate,
-      description: `Payment — Bill ${billNumber}`,
-      reference: billNumber,
-      source: 'bill',
-      is_posted: true,
-    })
-    .select('id')
-    .single()
-
-  if (entryErr || !entry) throw new Error(entryErr?.message ?? 'Failed to create payment journal')
-
-  const { error: linesErr } = await supabase.from('acct_journal_lines').insert([
-    { entry_id: entry.id, account_id: apId,   debit: total, credit: 0,     description: `AP — ${billNumber}` },
-    { entry_id: entry.id, account_id: bankId, debit: 0,     credit: total, description: `Bank — ${billNumber}` },
-  ])
-  if (linesErr) throw new Error(linesErr.message)
+  await recordJournalEntry(supabase, {
+    date: paymentDate,
+    description: `Payment — Bill ${billNumber}`,
+    reference: billNumber,
+    source: 'bill',
+    lines: [
+      { account_id: apId, debit: total, credit: 0, description: `AP — ${billNumber}` },
+      { account_id: bankId, debit: 0, credit: total, description: `Bank — ${billNumber}` },
+    ],
+  })
 
   const { error: updateErr } = await supabase
     .from('acct_invoices')
