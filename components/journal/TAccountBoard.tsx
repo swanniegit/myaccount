@@ -22,7 +22,7 @@ export default function TAccountBoard({ pinned, dragTarget, onDragTarget, onDrop
   }
 
   return (
-    <motion className="flex gap-3 flex-wrap mb-3">
+    <div className="flex gap-3 flex-wrap mb-3">
       {pinned.map(p => (
         <TAccountCard
           key={p.account.id}
@@ -76,7 +76,7 @@ function TAccountCard({
         <DropSide side="Dr" accountId={p.account.id} lines={drLines} dragTarget={dragTarget} onDragTarget={onDragTarget} onDrop={onDrop} bordered />
         <DropSide side="Cr" accountId={p.account.id} lines={crLines} dragTarget={dragTarget} onDragTarget={onDragTarget} onDrop={onDrop} />
       </div>
-      <motion className="flex justify-between items-center px-2 py-1 border-t border-ink bg-paper">
+      <div className="flex justify-between items-center px-2 py-1 border-t border-ink bg-paper">
         <span className="text-xs text-ink-2">Bal.</span>
         <span className="font-mono text-xs font-semibold" style={{ color: bal >= 0 ? 'var(--positive)' : 'var(--negative)' }}>
           {bal >= 0 ? '+' : ''}
@@ -116,7 +116,7 @@ function DropSide({
       <div className={`text-xs font-medium mb-1 ${side === 'Dr' ? 'text-accent' : 'text-ink-2'}`}>{side.toUpperCase()}</div>
       {lines.map((l, i) => (
         <div key={i} className="text-xs">
-          <motion className="text-muted" style={{ fontSize: 10 }}>{l.label.split('\n')[0]}</motion>
+          <div className="text-muted" style={{ fontSize: 10 }}>{l.label.split('\n')[0]}</motion>
           <div className={`font-mono ${side === 'Dr' ? 'text-accent' : ''}`}>
             {l.amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
           </motion>
