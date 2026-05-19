@@ -1,0 +1,51 @@
+---
+description: myAccount architecture — LEGO blocks, GL posting, folder layout
+alwaysApply: true
+---
+
+# myAccount architecture
+
+## Folder layout
+
+| Path | Purpose |
+|------|---------|
+| `app/` | Next.js routes only — thin pages and API handlers |
+| `app/api/` | HTTP boundary: validate input, call `lib/*`, return JSON |
+| `lib/` | Business logic (no React) |
+| `lib/ledger.ts` | **All GL writes** go through `recordJournalEntry` |
+| `lib/banking/`, `lib/purchases/`, `lib/payroll/`, `lib/livehis-push/` | Domain LEGO blocks |
+| `components/` | Presentational UI; feature folders match domains |
+| `hooks/` | Client state for complex pages |
+| `supabase/migrations/` | Schema + RPCs |
+| `examples/` | Non-production demos (not in build) |
+| `myAccount/` | Design handoff references only |
+
+## Five rules
+
+1. **LEGO blocks** — One concern per file; ~3 exported functions max in calc modules; pages stay thin.
+2. **Modular** — UI → API/service → DB. No duplicate journal posting in routes.
+3. **DRY** — Reuse `recordJournalEntry`, `getAccountId`, `round2` from `lib/utils`.
+4. **Database integrity** — Balanced entries via `acct_post_journal_entry` RPC (migration `005`); run migrations after schema changes.
+5. **Type safety** — Use `lib/types.ts`; avoid `object[]` for journal lines; prefer typed `JournalLineInput[]`.
+
+## GL posting
+
+```typescript
+import { recordJournalEntry } from '@/lib/ledger'
+
+await recordJournalEntry(supabase, {
+  date, description, reference, source: 'bill',
+  lines: [{ account_id, debit, credit, description }],
+})
+```
+
+Client components: `recordJournalEntryClient(input)`.
+
+## API routes
+
+Keep handlers under ~30 lines — delegate to `lib/<domain>/`.
+
+## Out of scope in `app/`
+
+- Direct `acct_journal_entries` / `acct_journal_lines` inserts (use `lib/ledger.ts`)
+- Copying design-handoff JSX into production
