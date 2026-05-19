@@ -5,7 +5,7 @@ export default function PostedEntriesTable({ entries }: { entries: JournalEntry[
   return (
     <div>
       <p className="text-sm font-medium mb-2">Posted entries</p>
-      <motion className="card overflow-hidden">
+      <div className="card overflow-hidden">
         <table className="w-full text-xs">
           <thead className="t-head">
             <tr>
@@ -38,7 +38,7 @@ export default function PostedEntriesTable({ entries }: { entries: JournalEntry[
             )}
           </tbody>
         </table>
-      </motion>
-    </motion>
+      </div>
+    </div>
   )
 }
