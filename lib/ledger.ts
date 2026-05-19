@@ -43,6 +43,61 @@ export function assertJournalBalanced(lines: Pick<JournalLineInput, 'debit' | 'c
   }
 }
 
+async function postJournalEntryInline(
+  supabase: SupabaseClient,
+  input: RecordEntryInput
+): Promise<RecordEntryResult> {
+  const { data: entry, error: entryError } = await supabase
+    .from('acct_journal_entries')
+    .insert({
+      date: input.date,
+      description: input.description,
+      reference: input.reference ?? null,
+      source: input.source ?? 'manual',
+      is_posted: true,
+    })
+    .select()
+    .single()
+
+  if (entryError || !entry) throw new Error(entryError?.message ?? 'Failed to create journal entry')
+
+  const { data: insertedLines, error: linesError } = await supabase
+    .from('acct_journal_lines')
+    .insert(
+      input.lines.map(l => ({
+        entry_id: entry.id,
+        account_id: l.account_id,
+        debit: l.debit || 0,
+        credit: l.credit || 0,
+        description: l.description ?? null,
+      }))
+    )
+    .select('id, account_id, debit, credit')
+
+  if (linesError || !insertedLines) {
+    await supabase.from('acct_journal_entries').delete().eq('id', entry.id)
+    throw new Error(linesError?.message ?? 'Failed to create journal lines')
+  }
+
+  return {
+    entry: entry as JournalEntry,
+    lines: insertedLines.map(l => ({
+      id: l.id,
+      account_id: l.account_id,
+      debit: Number(l.debit),
+      credit: Number(l.credit),
+    })),
+  }
+}
+
+function rpcUnavailable(error: { code?: string; message?: string }): boolean {
+  return (
+    error.code === 'PGRST202' ||
+    error.message?.includes('acct_post_journal_entry') === true ||
+    error.message?.includes('Could not find the function') === true
+  )
+}
+
 /** Post a balanced journal entry (entry header + lines). Prefer this for all GL writes. */
 export async function recordJournalEntry(
   supabase: SupabaseClient,
@@ -63,7 +118,10 @@ export async function recordJournalEntry(
     })),
   })
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    if (rpcUnavailable(error)) return postJournalEntryInline(supabase, input)
+    throw new Error(error.message)
+  }
   if (!data?.entry_id) throw new Error('Failed to post journal entry')
 
   const entry: JournalEntry = {
