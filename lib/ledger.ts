@@ -1,56 +1,96 @@
-import { supabase } from './supabase'
-import type { Account, AccountType } from './types'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { supabase as browserSupabase } from './supabase'
+import type { Account, AccountType, EntrySource, JournalEntry } from './types'
+
+export type { EntrySource }
+
+export interface JournalLineInput {
+  account_id: string
+  debit: number
+  credit: number
+  description?: string
+}
 
 export interface RecordEntryInput {
   date: string
   description: string
   reference?: string
-  source?: 'manual' | 'bank_import' | 'invoice' | 'bill'
-  lines: {
-    account_id: string
-    debit: number
-    credit: number
-    description?: string
-  }[]
+  source?: EntrySource
+  lines: JournalLineInput[]
 }
 
-export async function recordJournalEntry(input: RecordEntryInput) {
-  const totalDebits = input.lines.reduce((s, l) => s + (l.debit || 0), 0)
-  const totalCredits = input.lines.reduce((s, l) => s + (l.credit || 0), 0)
+export interface PostedJournalLine {
+  id: string
+  account_id: string
+  debit: number
+  credit: number
+}
 
-  if (Math.abs(totalDebits - totalCredits) > 0.001) {
+export interface RecordEntryResult {
+  entry: JournalEntry
+  lines: PostedJournalLine[]
+}
+
+const BALANCE_TOLERANCE = 0.001
+
+export function assertJournalBalanced(lines: Pick<JournalLineInput, 'debit' | 'credit'>[]): void {
+  const totalDebits = lines.reduce((s, l) => s + (l.debit || 0), 0)
+  const totalCredits = lines.reduce((s, l) => s + (l.credit || 0), 0)
+  if (Math.abs(totalDebits - totalCredits) > BALANCE_TOLERANCE) {
     throw new Error(
       `Debits (R ${totalDebits.toFixed(2)}) must equal Credits (R ${totalCredits.toFixed(2)})`
     )
   }
+}
 
-  const { data: entry, error: entryError } = await supabase
-    .from('acct_journal_entries')
-    .insert({
-      date: input.date,
-      description: input.description,
-      reference: input.reference ?? null,
-      source: input.source ?? 'manual',
-      is_posted: true,
-    })
-    .select()
-    .single()
+/** Post a balanced journal entry (entry header + lines). Prefer this for all GL writes. */
+export async function recordJournalEntry(
+  supabase: SupabaseClient,
+  input: RecordEntryInput
+): Promise<RecordEntryResult> {
+  assertJournalBalanced(input.lines)
 
-  if (entryError) throw new Error(entryError.message)
-
-  const { error: linesError } = await supabase.from('acct_journal_lines').insert(
-    input.lines.map(l => ({
-      entry_id: entry.id,
+  const { data, error } = await supabase.rpc('acct_post_journal_entry', {
+    p_date: input.date,
+    p_description: input.description,
+    p_reference: input.reference ?? null,
+    p_source: input.source ?? 'manual',
+    p_lines: input.lines.map(l => ({
       account_id: l.account_id,
       debit: l.debit || 0,
       credit: l.credit || 0,
       description: l.description ?? null,
-    }))
+    })),
+  })
+
+  if (error) throw new Error(error.message)
+  if (!data?.entry_id) throw new Error('Failed to post journal entry')
+
+  const entry: JournalEntry = {
+    id: data.entry_id,
+    date: input.date,
+    description: input.description,
+    reference: input.reference ?? null,
+    source: input.source ?? 'manual',
+    is_posted: true,
+    created_at: new Date().toISOString(),
+  }
+
+  const lines: PostedJournalLine[] = (data.lines ?? []).map(
+    (l: { id: string; account_id: string; debit: number; credit: number }) => ({
+      id: l.id,
+      account_id: l.account_id,
+      debit: Number(l.debit),
+      credit: Number(l.credit),
+    })
   )
 
-  if (linesError) throw new Error(linesError.message)
+  return { entry, lines }
+}
 
-  return entry
+/** Client components: posts via browser Supabase client. */
+export function recordJournalEntryClient(input: RecordEntryInput) {
+  return recordJournalEntry(browserSupabase, input)
 }
 
 export function getAccountBalance(

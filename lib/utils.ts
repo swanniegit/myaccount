@@ -32,3 +32,7 @@ export function calcVAT(excl: number, rate = VAT_RATE): number {
 export function monthName(month: number): string {
   return new Date(2000, month - 1, 1).toLocaleString('en-ZA', { month: 'long' })
 }
+
+export function round2(n: number): number {
+  return Math.round(n * 100) / 100
+}
