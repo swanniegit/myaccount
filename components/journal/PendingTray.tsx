@@ -10,7 +10,7 @@ interface Props {
 
 export default function PendingTray({ chips, dragging, onDragStart, onDragEnd }: Props) {
   return (
-    <motion
+    <div
       className="flex items-center gap-2 p-2 rounded mb-4 flex-wrap"
       style={{ background: 'rgba(234,227,210,0.5)', border: '1.5px dashed var(--ink-2)' }}
     >
@@ -37,18 +37,9 @@ export default function PendingTray({ chips, dragging, onDragStart, onDragEnd }:
           >
             {chip.ref}
           </span>
-        </motion>
+        </div>
       ))}
       {chips.length === 0 && <span className="text-xs text-muted">All posted ✓</span>}
-    </motion>
-  )
-}
-
-// Avoid importing motion — use div
-function motion({ className, style, children, ...rest }: React.HTMLAttributes<HTMLDivElement> & { style?: React.CSSProperties }) {
-  return (
-    <motion className={className} style={style} {...rest}>
-      {children}
     </motion>
   )
 }
