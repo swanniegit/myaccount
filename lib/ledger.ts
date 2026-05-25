@@ -32,6 +32,24 @@ export interface RecordEntryResult {
 }
 
 const BALANCE_TOLERANCE = 0.001
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+async function assertPeriodOpen(supabase: SupabaseClient, date: string): Promise<void> {
+  const d = new Date(date)
+  const year = d.getFullYear()
+  const month = d.getMonth() + 1
+  const { data } = await supabase
+    .from('acct_periods')
+    .select('status')
+    .eq('year', year)
+    .eq('month', month)
+    .maybeSingle()
+  if (data?.status === 'closed') {
+    throw new Error(
+      `Period ${MONTH_NAMES[month - 1]} ${year} is closed — reopen it in Settings → Periods before posting.`
+    )
+  }
+}
 
 export function assertJournalBalanced(lines: Pick<JournalLineInput, 'debit' | 'credit'>[]): void {
   const totalDebits = lines.reduce((s, l) => s + (l.debit || 0), 0)
@@ -103,6 +121,7 @@ export async function recordJournalEntry(
   supabase: SupabaseClient,
   input: RecordEntryInput
 ): Promise<RecordEntryResult> {
+  await assertPeriodOpen(supabase, input.date)
   assertJournalBalanced(input.lines)
 
   const { data, error } = await supabase.rpc('acct_post_journal_entry', {

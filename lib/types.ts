@@ -142,3 +142,16 @@ export interface TrialBalance {
   totalCredit: number
   isBalanced: boolean
 }
+
+export interface Period {
+  id: string
+  year: number
+  month: number
+  start_date: string
+  end_date: string
+  status: 'open' | 'closed'
+  closed_at: string | null
+  closed_by: string | null
+  notes: string | null
+  created_at: string
+}

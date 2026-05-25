@@ -12,20 +12,26 @@ import { createClient } from '@supabase/supabase-js'
 
 const DRY = process.argv.includes('--dry-run')
 
-const SUPABASE_URL = 'https://saujtvflbumngsfcjvdt.supabase.co'
-const SUPABASE_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.' +
-  'eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNhdWp0dmZsYnVtbmdzZmNqdmR0Iiwicm9sZSI6' +
-  'InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NzUzMzY3NiwiZXhwIjoyMDgzMTA5Njc2fQ.' +
-  'qk9lRm63n17ekZyumy3Svae65e2aAX7Mb9IIkDV_-eI'
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+const LIVEHIS_HOST = process.env.LIVEHIS_DB_HOST
+const LIVEHIS_USER = process.env.LIVEHIS_DB_USER
+const LIVEHIS_PASS = process.env.LIVEHIS_DB_PASS
+const LIVEHIS_DB   = process.env.LIVEHIS_DB_NAME ?? 'heartsinscrubs_db'
+
+if (!SUPABASE_URL || !SUPABASE_KEY || !LIVEHIS_HOST || !LIVEHIS_USER || !LIVEHIS_PASS) {
+  console.error('Missing env vars. Run with: node --env-file=.env.local scripts/import-livehis-prod.mjs')
+  console.error('Required: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, LIVEHIS_DB_HOST, LIVEHIS_DB_USER, LIVEHIS_DB_PASS')
+  process.exit(1)
+}
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 
 const db = await mysql.createConnection({
-  host: 'sql32.cpt3.host-h.net',
-  user: 'heartsi1',
-  password: 'Th3dbmovetoxneel',
-  database: 'heartsinscrubs_db',
+  host: LIVEHIS_HOST,
+  user: LIVEHIS_USER,
+  password: LIVEHIS_PASS,
+  database: LIVEHIS_DB,
 })
 
 const BATCH = 200
@@ -141,13 +147,14 @@ async function importInvoices(invoiceRows, contactMap, accts) {
       if (!jeId) continue
       const invoiceType = ['cash', 'medical_aid', 'corporate', 'wca'].includes(row.invoice_type) ? row.invoice_type : 'cash'
       const debitCode = invoiceType === 'cash' ? '1010' : '1100'
-      const safeTotal    = Math.max(0, parseFloat(row.total_amount) || 0)
-      const safeSubtotal = Math.max(0, parseFloat(row.subtotal_amount) || 0)
-      const safeVat      = Math.max(0, parseFloat(row.vat_amount) || 0)
+      const safeTotal    = Math.round(Math.max(0, parseFloat(row.total_amount)    || 0) * 100) / 100
+      const safeSubtotal = Math.round(Math.max(0, parseFloat(row.subtotal_amount) || 0) * 100) / 100
+      // Derive VAT as the residual so the entry always balances exactly
+      const safeVatCredit = Math.round((safeTotal - safeSubtotal) * 100) / 100
       jlRows.push(
-        { entry_id: jeId, account_id: accts[debitCode], debit: safeTotal,    credit: 0,            description: `AR/Cash — ${row.invoice_number}` },
-        { entry_id: jeId, account_id: accts['4100'],     debit: 0,            credit: safeSubtotal, description: `Revenue — ${row.invoice_number}` },
-        { entry_id: jeId, account_id: accts['2100'],     debit: 0,            credit: safeVat,      description: `VAT Output — ${row.invoice_number}` },
+        { entry_id: jeId, account_id: accts[debitCode], debit: safeTotal,      credit: 0,             description: `AR/Cash — ${row.invoice_number}` },
+        { entry_id: jeId, account_id: accts['4100'],     debit: 0,              credit: safeSubtotal,  description: `Revenue — ${row.invoice_number}` },
+        { entry_id: jeId, account_id: accts['2100'],     debit: 0,              credit: safeVatCredit, description: `VAT Output — ${row.invoice_number}` },
       )
     }
     if (!DRY && jlRows.length) await sbInsertBatch('acct_journal_lines', jlRows)
