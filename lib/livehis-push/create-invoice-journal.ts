@@ -45,12 +45,14 @@ export async function createInvoiceJournal(args: JournalArgs): Promise<string> {
         debit: 0,
         credit: safeSubtotal,
         description: `Revenue — ${invoiceNumber}`,
+        tax_type_code: '01',
       },
       {
         account_id: vatId,
         debit: 0,
         credit: safeVat,
         description: `VAT Output — ${invoiceNumber}`,
+        tax_type_code: '01',
       },
     ],
   })

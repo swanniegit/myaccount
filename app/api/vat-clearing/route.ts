@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
+import { computeVat201 } from '@/lib/vat/compute'
 import { recordJournalEntry } from '@/lib/ledger'
 
 // POST /api/vat-clearing
 // Body: { from: string; to: string; clearing_date: string }
-// V-06: Dr 2100 VAT Output / Cr 1300 VAT Input / Cr 2110 SARS VAT Payable
+// V-06: Dr 2100 VAT Output / Cr 1300 VAT Input / Cr 2110 VAT Control
 // Idempotent: rejects if a clearing entry for this period already exists.
 
 export async function POST(req: NextRequest) {
@@ -29,20 +30,21 @@ export async function POST(req: NextRequest) {
     .maybeSingle()
 
   if (existing) {
-    return NextResponse.json({ error: `VAT clearing for ${from.slice(0, 7)} already posted (${ref}). Reverse that entry if you need to re-run.` }, { status: 409 })
+    return NextResponse.json({
+      error: `VAT clearing for ${from.slice(0, 7)} already posted (${ref}). Reverse that entry if you need to re-run.`,
+    }, { status: 409 })
   }
 
-  // Fetch period VAT totals from the VAT 201 route logic
-  const vatRes = await fetch(
-    `${req.nextUrl.origin}/api/vat201?from=${from}&to=${to}`,
-    { headers: { cookie: req.headers.get('cookie') ?? '' } }
-  )
-  const vatData = await vatRes.json()
-  if (!vatRes.ok) return NextResponse.json({ error: vatData.error ?? 'Failed to load VAT data' }, { status: 500 })
+  let vatData: Awaited<ReturnType<typeof computeVat201>>
+  try {
+    vatData = await computeVat201(supabase, from, to)
+  } catch (err) {
+    return NextResponse.json({ error: (err as Error).message }, { status: 500 })
+  }
 
-  const outputVAT  = Number(vatData.outputVAT  ?? 0)
-  const inputVAT   = Number(vatData.inputVAT   ?? 0)
-  const netPayable = Number(vatData.netPayable  ?? 0)
+  const outputVAT  = vatData.outputVAT
+  const inputVAT   = vatData.inputVAT
+  const netPayable = vatData.netPayable
 
   if (outputVAT === 0 && inputVAT === 0) {
     return NextResponse.json({ error: 'No VAT postings found for this period — nothing to clear.' }, { status: 422 })

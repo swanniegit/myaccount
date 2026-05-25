@@ -29,6 +29,7 @@ export async function approveBill(
       debit: totalVat,
       credit: 0,
       description: `VAT Input — ${bill.number}`,
+      tax_type_code: '01',
     })
   }
 
