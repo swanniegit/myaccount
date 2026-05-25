@@ -45,28 +45,45 @@ export default function EquityPage() {
 
       const { start, end } = monthRange(period)
 
-      const { data: lines, error: lineErr } = await supabase
+      // Opening balance: all posted lines before period start
+      const openingTotals: Record<string, { debit: number; credit: number }> = {}
+      const { data: openingLines, error: openErr } = await supabase
+        .from('acct_journal_lines')
+        .select('account_id, debit, credit, acct_journal_entries!inner(date, is_posted)')
+        .eq('acct_journal_entries.is_posted', true)
+        .lt('acct_journal_entries.date', start)
+
+      if (openErr) { setError('Failed to load opening balances'); setLoading(false); return }
+
+      for (const l of openingLines ?? []) {
+        if (!openingTotals[l.account_id]) openingTotals[l.account_id] = { debit: 0, credit: 0 }
+        openingTotals[l.account_id].debit  += Number(l.debit)
+        openingTotals[l.account_id].credit += Number(l.credit)
+      }
+
+      // Period movement: posted lines within the period
+      const movementTotals: Record<string, { debit: number; credit: number }> = {}
+      const { data: periodLines, error: perErr } = await supabase
         .from('acct_journal_lines')
         .select('account_id, debit, credit, acct_journal_entries!inner(date, is_posted)')
         .eq('acct_journal_entries.is_posted', true)
         .gte('acct_journal_entries.date', start)
         .lt('acct_journal_entries.date', end)
 
-      if (lineErr || !lines) { setError('Failed to load journal lines'); setLoading(false); return }
+      if (perErr) { setError('Failed to load period movements'); setLoading(false); return }
 
-      const movementTotals: Record<string, { debit: number; credit: number }> = {}
-      for (const l of lines) {
+      for (const l of periodLines ?? []) {
         if (!movementTotals[l.account_id]) movementTotals[l.account_id] = { debit: 0, credit: 0 }
         movementTotals[l.account_id].debit  += Number(l.debit)
         movementTotals[l.account_id].credit += Number(l.credit)
       }
 
       const result: EquityRow[] = accounts.map(acc => {
-        const t = movementTotals[acc.id]
-        const movement = t
-          ? (acc.normal_balance === 'credit' ? t.credit - t.debit : t.debit - t.credit)
-          : 0
-        return { account: acc, opening: 0, movement, closing: movement }
+        const ot = openingTotals[acc.id]
+        const mt = movementTotals[acc.id]
+        const opening  = ot ? (acc.normal_balance === 'credit' ? ot.credit - ot.debit : ot.debit - ot.credit) : 0
+        const movement = mt ? (acc.normal_balance === 'credit' ? mt.credit - mt.debit : mt.debit - mt.credit) : 0
+        return { account: acc, opening, movement, closing: opening + movement }
       })
 
       setRows(result)
@@ -75,6 +92,7 @@ export default function EquityPage() {
     load()
   }, [period])
 
+  const totalOpening  = rows.reduce((s, r) => s + r.opening, 0)
   const totalMovement = rows.reduce((s, r) => s + r.movement, 0)
   const totalClosing  = rows.reduce((s, r) => s + r.closing, 0)
 
@@ -83,7 +101,7 @@ export default function EquityPage() {
       <div className="flex items-start justify-between mb-1">
         <div>
           <h1 className="text-xl font-semibold">Reports · Statement of Changes in Equity</h1>
-          <p className="text-xs mt-0.5 text-ink-2">{MONTHS[period.month]} {period.year}</p>
+          <p className="text-xs mt-0.5 text-ink-2">{MONTHS[period.month]} {period.year} · posted only</p>
         </div>
         <MonthPicker value={period} onChange={setPeriod} />
       </div>
@@ -139,7 +157,7 @@ export default function EquityPage() {
               <td />
               <td className="px-3 py-2 font-semibold">Total Equity</td>
               <td className="px-3 py-2 num font-semibold text-ink-2">
-                {loading ? '—' : (0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                {loading ? '—' : totalOpening.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
               </td>
               <td className="px-3 py-2 num font-semibold" style={{ color: totalMovement >= 0 ? 'var(--positive)' : 'var(--negative)' }}>
                 {loading ? '—' : totalMovement.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
@@ -151,10 +169,6 @@ export default function EquityPage() {
           </tfoot>
         </table>
       </div>
-
-      <p className="mt-3 text-xs italic text-ink-2">
-        Retained earnings are computed from the income statement and not shown separately in this view.
-      </p>
     </div>
   )
 }
