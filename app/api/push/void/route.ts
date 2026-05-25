@@ -23,25 +23,18 @@ export async function POST(req: NextRequest) {
 
   const { data: invoice, error: findErr } = await supabase
     .from('acct_invoices')
-    .select('id')
+    .select('id, status')
     .eq('external_ref', invoice_external_ref)
     .maybeSingle()
 
-  if (findErr) {
-    return NextResponse.json({ error: findErr.message }, { status: 500 })
-  }
-  if (!invoice) {
-    return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
-  }
+  if (findErr) return NextResponse.json({ error: findErr.message }, { status: 500 })
+  if (!invoice) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
 
-  const { error: updateErr } = await supabase
-    .from('acct_invoices')
-    .update({ status: 'void' })
-    .eq('id', invoice.id)
+  // Delegate the reversal + status update to a single atomic DB function.
+  const { data: result, error: voidErr } = await supabase
+    .rpc('acct_void_invoice', { p_invoice_id: invoice.id })
 
-  if (updateErr) {
-    return NextResponse.json({ error: updateErr.message }, { status: 500 })
-  }
+  if (voidErr) return NextResponse.json({ error: voidErr.message }, { status: 422 })
 
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ success: true, ...result })
 }

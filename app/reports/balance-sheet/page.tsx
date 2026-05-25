@@ -45,7 +45,8 @@ export default function BalanceSheetPage() {
       while (true) {
         const { data: batch, error: lineErr } = await supabase
           .from('acct_journal_lines')
-          .select('account_id, debit, credit')
+          .select('account_id, debit, credit, acct_journal_entries!inner(is_posted)')
+          .eq('acct_journal_entries.is_posted', true)
           .range(offset, offset + BATCH - 1)
 
         if (lineErr) { setError('Failed to load journal lines'); setLoading(false); return }

@@ -26,7 +26,8 @@ export async function GET(request: Request) {
   while (true) {
     const { data: batch } = await supabase
       .from('acct_journal_lines')
-      .select('account_id, debit, credit, acct_journal_entries(date)')
+      .select('account_id, debit, credit, acct_journal_entries!inner(date, is_posted)')
+      .eq('acct_journal_entries.is_posted', true)
       .range(offset, offset + BATCH - 1)
 
     if (!batch || batch.length === 0) break
