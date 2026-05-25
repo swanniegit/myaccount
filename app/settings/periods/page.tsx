@@ -2,6 +2,10 @@
 import { useEffect, useState } from 'react'
 import type { Period } from '@/lib/types'
 
+function currentFiscalYear() {
+  return new Date().getFullYear()
+}
+
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
 function monthsBack(n: number): { year: number; month: number }[] {
@@ -19,6 +23,10 @@ export default function PeriodsPage() {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState<string | null>(null)
   const [msg, setMsg] = useState('')
+  const [yeYear, setYeYear] = useState(currentFiscalYear())
+  const [yeRunning, setYeRunning] = useState(false)
+  const [yeResult, setYeResult] = useState<string | null>(null)
+  const [yeError, setYeError] = useState<string | null>(null)
 
   const rows = monthsBack(18)
 
@@ -33,6 +41,34 @@ export default function PeriodsPage() {
 
   function getPeriod(year: number, month: number) {
     return periods.find(p => p.year === year && p.month === month) ?? null
+  }
+
+  async function runYearEnd() {
+    setYeRunning(true)
+    setYeResult(null)
+    setYeError(null)
+    try {
+      const res = await fetch('/api/year-end/close', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fiscal_year: yeYear }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setYeError(data.error ?? 'Year-end close failed')
+      } else {
+        setYeResult(
+          `FY${data.fiscal_year} closed. Revenue R ${Number(data.total_revenue).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}, ` +
+          `Expenses R ${Number(data.total_expenses).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}, ` +
+          `Net R ${Number(data.net_profit).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}.`
+        )
+        await load()
+      }
+    } catch (e: unknown) {
+      setYeError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setYeRunning(false)
+    }
   }
 
   async function toggle(year: number, month: number, toStatus: 'open' | 'closed') {
@@ -131,6 +167,50 @@ export default function PeriodsPage() {
         Closing a period does not affect data already posted — it only prevents new entries on those dates.
         Import scripts bypass this guard and always write directly.
       </p>
+
+      <div className="mt-8">
+        <h2 className="text-base font-semibold mb-1">Year-end close</h2>
+        <p className="text-xs text-ink-2 mb-4">
+          Closes all revenue and expense accounts into 3300 (Current Year Earnings), rolls 3300 into 3100 (Retained Earnings), and locks all FY periods. Cannot be undone without reversing the closing journals.
+        </p>
+
+        {yeResult && (
+          <div className="mb-3 px-3 py-2 text-xs rounded"
+            style={{ background: 'var(--positive-soft, #dcfce7)', color: 'var(--positive, #16a34a)', border: '1px solid var(--positive, #16a34a)' }}>
+            {yeResult}
+          </div>
+        )}
+        {yeError && (
+          <div className="mb-3 px-3 py-2 text-xs rounded"
+            style={{ background: 'var(--accent-soft)', color: 'var(--negative)', border: '1px solid var(--negative)' }}>
+            {yeError}
+          </div>
+        )}
+
+        <div className="card p-4 flex items-end gap-4">
+          <div>
+            <label className="text-xs text-ink-2 block mb-1">Fiscal year</label>
+            <input
+              type="number"
+              value={yeYear}
+              onChange={e => setYeYear(Number(e.target.value))}
+              className="input text-xs py-1 px-2 w-24"
+              min={2000}
+              max={2100}
+            />
+          </div>
+          <button
+            className="btn btn-secondary text-xs"
+            disabled={yeRunning}
+            onClick={() => {
+              if (!confirm(`Run year-end close for FY${yeYear}? This will post closing journals and lock all FY periods. This cannot be undone without manual reversal.`)) return
+              runYearEnd()
+            }}
+          >
+            {yeRunning ? 'Running…' : `Close FY${yeYear}`}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

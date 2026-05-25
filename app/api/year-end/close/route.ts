@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, getRequestUser } from '@/lib/supabase-server'
+import { createServerClient } from '@/lib/supabase-server'
 import { runYearEndClose } from '@/lib/year-end/close'
 
 // POST /api/year-end/close
 // Body: { fiscal_year: number }
-// Auth: Supabase session JWT in Authorization: Bearer <token>
+// Auth: HMAC session middleware — same guard as all browser routes
 export async function POST(req: NextRequest) {
-  const user = await getRequestUser(req)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   let body: { fiscal_year: number }
   try { body = await req.json() } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })

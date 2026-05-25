@@ -168,13 +168,40 @@ export async function runYearEndClose(
     lines: rollupLines,
   })
 
-  // Close all FY periods (only months within the FY range)
-  await supabase
-    .from('acct_periods')
-    .update({ status: 'closed', closed_at: new Date().toISOString() })
-    .gte('year', fyStartYear)
-    .lte('year', fiscal_year)
-    .filter('year', 'gt', fyStartYear - 1)  // belt-and-suspenders guard
+  // Close only the periods within this FY's date range, not all calendar-year months.
+  const closedAt = new Date().toISOString()
+
+  if (fyStartYear === fiscal_year) {
+    // Entire FY falls in one calendar year (e.g., Jan–Dec for a Dec year-end)
+    await supabase
+      .from('acct_periods')
+      .update({ status: 'closed', closed_at: closedAt })
+      .eq('year', fiscal_year)
+      .gte('month', fyStartMonth)
+      .lte('month', taxYearEnd)
+  } else {
+    // FY spans two calendar years (e.g., Mar 2025 – Feb 2026 for a Feb year-end)
+    await supabase
+      .from('acct_periods')
+      .update({ status: 'closed', closed_at: closedAt })
+      .eq('year', fyStartYear)
+      .gte('month', fyStartMonth)
+
+    await supabase
+      .from('acct_periods')
+      .update({ status: 'closed', closed_at: closedAt })
+      .eq('year', fiscal_year)
+      .lte('month', taxYearEnd)
+
+    // Handles the edge case of a 3-year FY span (effectively impossible in normal ops)
+    if (fiscal_year - fyStartYear > 1) {
+      await supabase
+        .from('acct_periods')
+        .update({ status: 'closed', closed_at: closedAt })
+        .gt('year', fyStartYear)
+        .lt('year', fiscal_year)
+    }
+  }
 
   return {
     fiscal_year,

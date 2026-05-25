@@ -159,15 +159,15 @@ export default function NewInvoicePage() {
               .from('acct_invoices')
               .update({ journal_entry_id: entry.id })
               .eq('id', inv.id)
-          } catch (glErr: any) {
-            throw new Error(`Invoice saved but GL posting failed: ${glErr.message}`)
+          } catch (glErr: unknown) {
+            throw new Error(`Invoice saved but GL posting failed: ${glErr instanceof Error ? glErr.message : String(glErr)}`)
           }
         }
       }
 
       router.push('/sales')
-    } catch (e: any) {
-      setError(e.message)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e))
     } finally {
       setSaving(false)
     }
