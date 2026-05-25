@@ -119,8 +119,8 @@ export default function NewInvoicePage() {
         if (lErr) throw new Error(lErr.message)
       }
 
-      // Post GL journal entry — per-line revenue accounts (G-06, G-10)
-      if (total > 0 && validLines.length > 0) {
+      // Post GL journal entry on 'sent' only — drafts must not touch the ledger
+      if (status === 'sent' && total > 0 && validLines.length > 0) {
         const arAccId = accounts.find(a => a.code === '1100')?.id
         const vatAccId = accounts.find(a => a.code === '2100')?.id
         const fallbackRevId = revenueAccounts[0]?.id
@@ -368,7 +368,7 @@ export default function NewInvoicePage() {
 
           {total > 0 && (
             <div className="rounded-lg p-4 bg-paper border border-paper-edge">
-              <div className="text-xs font-medium mb-2">Will post on save</div>
+              <div className="text-xs font-medium mb-2">Will post on Send (not on Save draft)</div>
               <div className="num space-y-0.5 text-ink-2" style={{ fontSize: 11 }}>
                 <div>Dr {arAccount?.code ?? '1100'} AR ........ {total.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</div>
                 {lines.filter(l => l.description && l.unit_price).map((l, i) => {
