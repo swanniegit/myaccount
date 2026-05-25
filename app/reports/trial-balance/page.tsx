@@ -23,18 +23,13 @@ function isoToday() {
   return new Date().toISOString().slice(0, 10)
 }
 
-function isoFirstOfYear() {
-  return `${new Date().getFullYear()}-01-01`
-}
-
 const BATCH = 1000
 
 export default function TrialBalancePage() {
   const [rows, setRows]       = useState<TBRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState<string | null>(null)
-  const [dateFrom, setDateFrom] = useState(isoFirstOfYear())
-  const [dateTo, setDateTo]     = useState(isoToday())
+  const [asAt, setAsAt]       = useState(isoToday())
 
   useEffect(() => {
     async function load() {
@@ -52,13 +47,13 @@ export default function TrialBalancePage() {
       const totals: Record<string, { debit: number; credit: number }> = {}
       let offset = 0
 
+      // TB is cumulative "as at" a date — all posted lines up to and including asAt.
       while (true) {
         const { data: batch, error: lineErr } = await supabase
           .from('acct_journal_lines')
           .select('account_id, debit, credit, acct_journal_entries!inner(date, is_posted)')
           .eq('acct_journal_entries.is_posted', true)
-          .gte('acct_journal_entries.date', dateFrom)
-          .lte('acct_journal_entries.date', dateTo)
+          .lte('acct_journal_entries.date', asAt)
           .range(offset, offset + BATCH - 1)
 
         if (lineErr) { setError('Failed to load journal lines'); setLoading(false); return }
@@ -89,7 +84,7 @@ export default function TrialBalancePage() {
       setLoading(false)
     }
     load()
-  }, [dateFrom, dateTo])
+  }, [asAt])
 
   const totalDebit  = rows.reduce((s, r) => s + r.debit, 0)
   const totalCredit = rows.reduce((s, r) => s + r.credit, 0)
@@ -100,24 +95,16 @@ export default function TrialBalancePage() {
       <div className="flex items-start justify-between mb-1">
         <div>
           <h1 className="text-xl font-semibold">Reports · Trial Balance</h1>
-          <p className="text-xs mt-0.5 text-ink-2">Posted entries only · IFRS for SMEs</p>
+          <p className="text-xs mt-0.5 text-ink-2">Cumulative as at {asAt} · posted entries only</p>
         </div>
         <div className="flex gap-2 items-center">
-          <label className="text-xs text-ink-2">From</label>
+          <label className="text-xs text-ink-2">As at</label>
           <input
             type="date"
-            value={dateFrom}
-            onChange={e => setDateFrom(e.target.value)}
+            value={asAt}
+            onChange={e => setAsAt(e.target.value)}
             className="input text-xs py-1 px-2"
           />
-          <label className="text-xs text-ink-2">To</label>
-          <input
-            type="date"
-            value={dateTo}
-            onChange={e => setDateTo(e.target.value)}
-            className="input text-xs py-1 px-2"
-          />
-          <button className="btn btn-ghost text-xs">Export PDF</button>
         </div>
       </div>
 
