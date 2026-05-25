@@ -8,7 +8,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 ---
 
 ## Phase 1 — Audit Blockers
-> Nothing else is trustworthy until these five are in place.
+> Nothing else is trustworthy until these five are in place. (PR #1)
 
 | # | ID | Task | Status |
 |---|-----|------|--------|
@@ -24,15 +24,15 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 
 | # | ID | Task | Status |
 |---|-----|------|--------|
-| 6 | G-06 | Sales invoice screen (`app/sales/new`) must call `recordJournalEntry` on save — not just create invoice rows | `[ ]` |
-| 7 | G-10 | Invoice GL routing: use per-line `account_id` instead of hard-coding `4100` Service Revenue for all lines | `[ ]` |
-| 8 | R-02 | Balance Sheet: add "as at" date picker; report must be point-in-time, not always today | `[ ]` |
-| 9 | R-03 | Retained earnings: source from GL account balance (after year-end close), not a runtime sum of revenue − expenses | `[ ]` |
-| 10 | R-05 | Cash Flow: rebuild as IAS 7 statement (direct method from `acct_bank_transactions` or indirect from classified GL lines) | `[ ]` |
-| 11 | R-06 | Equity statement: derive opening balance from prior-period GL; remove hardcoded `opening = 0` | `[ ]` |
-| 12 | R-09 | FY start: read `tax_year_end` from Company table (default Feb = start March 1); remove hardcoded January | `[ ]` |
-| 13 | C-05 | Income Statement: separate COGS from operating expenses; add Gross Profit subtotal line | `[ ]` |
-| 14 | C-06 | Year-end roll-up: auto-post income/expense close into Current Year Earnings (3300), then 3300 → Retained Earnings (3100) | `[ ]` |
+| 6 | G-06 | Sales invoice screen (`app/sales/new`) must call `recordJournalEntry` on save — not just create invoice rows | `[x]` |
+| 7 | G-10 | Invoice GL routing: use per-line `account_id` instead of hard-coding `4100` Service Revenue for all lines | `[x]` |
+| 8 | R-02 | Balance Sheet: add "as at" date picker; report must be point-in-time, not always today | `[x]` |
+| 9 | R-03 | Retained earnings: source from GL account balance (after year-end close), not a runtime sum of revenue − expenses | `[x]` |
+| 10 | R-05 | Cash Flow: rebuild as IAS 7 indirect method statement from classified GL lines | `[x]` |
+| 11 | R-06 | Equity statement: derive opening balance from prior-period GL; remove hardcoded `opening = 0` | `[x]` |
+| 12 | R-09 | FY start: read `tax_year_end` from Company table (default Feb = start March 1); remove hardcoded January | `[x]` |
+| 13 | C-05 | Income Statement: separate COGS from operating expenses; add Gross Profit subtotal line | `[x]` |
+| 14 | C-06 | Year-end roll-up: `POST /api/year-end/close` posts IS→3300→3100 closing entries and locks all FY periods | `[x]` |
 
 ---
 
@@ -88,8 +88,8 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 | Phase | Total | Done | In Progress |
 |-------|-------|------|-------------|
 | 1 — Audit Blockers | 5 | 5 | 0 |
-| 2 — Financial Statements | 9 | 0 | 0 |
+| 2 — Financial Statements | 9 | 9 | 0 |
 | 3 — VAT | 5 | 0 | 0 |
 | 4 — Pastel Parity | 8 | 0 | 0 |
 | 5 — Remaining | 13 | 0 | 0 |
-| **Total** | **40** | **0** | **0** |
+| **Total** | **40** | **14** | **0** |

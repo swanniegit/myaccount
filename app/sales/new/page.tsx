@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { formatMoney, today } from '@/lib/utils'
 import type { Contact, Account } from '@/lib/types'
+import { recordJournalEntryClient } from '@/lib/ledger'
 import Button from '@/components/ui/Button'
 
 interface LineItem {
@@ -11,6 +12,7 @@ interface LineItem {
   qty: string
   unit_price: string
   vat_rate: string
+  account_id: string
 }
 
 export default function NewInvoicePage() {
@@ -22,7 +24,7 @@ export default function NewInvoicePage() {
   const [date, setDate] = useState(today())
   const [dueDate, setDueDate] = useState('')
   const [lines, setLines] = useState<LineItem[]>([
-    { description: '', qty: '1', unit_price: '', vat_rate: '15' },
+    { description: '', qty: '1', unit_price: '', vat_rate: '15', account_id: '' },
   ])
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
@@ -38,7 +40,13 @@ export default function NewInvoicePage() {
       if (data) setContacts(data)
     })
     supabase.from('acct_accounts').select('*').order('code').then(({ data }) => {
-      if (data) setAccounts(data)
+      if (data) {
+        setAccounts(data)
+        const firstRevenue = data.find(a => a.type === 'revenue')
+        if (firstRevenue) {
+          setLines([{ description: '', qty: '1', unit_price: '', vat_rate: '15', account_id: firstRevenue.id }])
+        }
+      }
     })
     supabase
       .from('acct_invoices')
@@ -53,6 +61,8 @@ export default function NewInvoicePage() {
         }
       })
   }, [])
+
+  const revenueAccounts = accounts.filter(a => a.type === 'revenue')
 
   function calcLine(l: LineItem) {
     const qty = parseFloat(l.qty) || 0
@@ -89,23 +99,70 @@ export default function NewInvoicePage() {
 
       if (invErr) throw new Error(invErr.message)
 
-      const invLines = lines
-        .filter(l => l.description && l.unit_price)
-        .map(l => {
-          const { excl, vat, total: lt } = calcLine(l)
-          return {
-            invoice_id: inv.id,
-            description: l.description,
-            quantity: parseFloat(l.qty) || 1,
-            unit_price: parseFloat(l.unit_price) || 0,
-            vat_rate: parseFloat(l.vat_rate) || 15,
-            line_total: lt,
-          }
-        })
+      const validLines = lines.filter(l => l.description && l.unit_price)
+
+      const invLines = validLines.map(l => {
+        const { excl, vat, total: lt } = calcLine(l)
+        return {
+          invoice_id: inv.id,
+          description: l.description,
+          quantity: parseFloat(l.qty) || 1,
+          unit_price: parseFloat(l.unit_price) || 0,
+          vat_rate: parseFloat(l.vat_rate) || 15,
+          account_id: l.account_id || null,
+          line_total: lt,
+        }
+      })
 
       if (invLines.length > 0) {
         const { error: lErr } = await supabase.from('acct_invoice_lines').insert(invLines)
         if (lErr) throw new Error(lErr.message)
+      }
+
+      // Post GL journal entry on 'sent' only — drafts must not touch the ledger
+      if (status === 'sent' && total > 0 && validLines.length > 0) {
+        const arAccId = accounts.find(a => a.code === '1100')?.id
+        const vatAccId = accounts.find(a => a.code === '2100')?.id
+        const fallbackRevId = revenueAccounts[0]?.id
+
+        if (arAccId && vatAccId) {
+          // Group excl amounts by account_id
+          const revCredits = new Map<string, number>()
+          for (const l of validLines) {
+            const { excl } = calcLine(l)
+            if (excl <= 0) continue
+            const accId = l.account_id || fallbackRevId
+            if (!accId) continue
+            revCredits.set(accId, (revCredits.get(accId) ?? 0) + excl)
+          }
+
+          const journalLines = [
+            { account_id: arAccId, debit: total, credit: 0, description: `AR — ${invoiceNumber}` },
+            ...Array.from(revCredits.entries()).map(([accId, excl]) => ({
+              account_id: accId,
+              debit: 0,
+              credit: excl,
+              description: `Revenue — ${invoiceNumber}`,
+            })),
+            { account_id: vatAccId, debit: 0, credit: vatTotal, description: `VAT Output — ${invoiceNumber}` },
+          ]
+
+          try {
+            const { entry } = await recordJournalEntryClient({
+              date,
+              description: `Invoice ${invoiceNumber}`,
+              reference: invoiceNumber,
+              source: 'invoice',
+              lines: journalLines,
+            })
+            await supabase
+              .from('acct_invoices')
+              .update({ journal_entry_id: entry.id })
+              .eq('id', inv.id)
+          } catch (glErr: any) {
+            throw new Error(`Invoice saved but GL posting failed: ${glErr.message}`)
+          }
+        }
       }
 
       router.push('/sales')
@@ -131,11 +188,10 @@ export default function NewInvoicePage() {
   }
 
   const arAccount = accounts.find(a => a.code === '1100')
-  const salesAccount = accounts.find(a => a.code === '4000')
   const vatAccount = accounts.find(a => a.code === '2100')
 
   return (
-    <div className="p-5 max-w-4xl">
+    <div className="p-5 max-w-5xl">
       <div className="mb-1">
         <h1 className="text-xl font-semibold">New invoice</h1>
         <p className="text-xs text-ink-2">SARS-compliant tax invoice · VAT 15%</p>
@@ -207,8 +263,8 @@ export default function NewInvoicePage() {
             <table className="w-full text-xs mb-1">
               <thead>
                 <tr className="border-b border-paper-edge">
-                  {['Description', 'Qty', 'Unit (excl.)', 'VAT', 'Total'].map(h => (
-                    <th key={h} className={`py-1.5 font-medium text-left text-ink-2 ${h !== 'Description' ? 'text-right pl-2' : ''}`}>
+                  {['Description', 'Account', 'Qty', 'Unit (excl.)', 'VAT', 'Total'].map(h => (
+                    <th key={h} className={`py-1.5 font-medium text-left text-ink-2 ${h !== 'Description' && h !== 'Account' ? 'text-right pl-2' : 'pl-0'}`}>
                       {h}
                     </th>
                   ))}
@@ -228,6 +284,17 @@ export default function NewInvoicePage() {
                           placeholder="e.g. Consulting – March"
                           className="w-full"
                         />
+                      </td>
+                      <td className="py-1.5 pr-2 w-36">
+                        <select
+                          value={line.account_id}
+                          onChange={e => setLines(prev => prev.map((l, j) => j === i ? { ...l, account_id: e.target.value } : l))}
+                          className="w-full"
+                        >
+                          {revenueAccounts.map(a => (
+                            <option key={a.id} value={a.id}>{a.code} {a.name}</option>
+                          ))}
+                        </select>
                       </td>
                       <td className="py-1.5 pl-2 w-12">
                         <input
@@ -270,7 +337,7 @@ export default function NewInvoicePage() {
               </tbody>
             </table>
             <button
-              onClick={() => setLines(prev => [...prev, { description: '', qty: '1', unit_price: '', vat_rate: '15' }])}
+              onClick={() => setLines(prev => [...prev, { description: '', qty: '1', unit_price: '', vat_rate: '15', account_id: revenueAccounts[0]?.id ?? '' }])}
               className="text-xs mb-4 italic text-muted"
             >
               + add line…
@@ -301,13 +368,18 @@ export default function NewInvoicePage() {
 
           {total > 0 && (
             <div className="rounded-lg p-4 bg-paper border border-paper-edge">
-              <div className="text-xs font-medium mb-2">Will post (preview)</div>
+              <div className="text-xs font-medium mb-2">Will post on Send (not on Save draft)</div>
               <div className="num space-y-0.5 text-ink-2" style={{ fontSize: 11 }}>
                 <div>Dr {arAccount?.code ?? '1100'} AR ........ {total.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</div>
-                <div>Cr {salesAccount?.code ?? '4000'} Sales ... {subtotal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</div>
-                <div>Cr {vatAccount?.code ?? '2220'} VAT Out .. {vatTotal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</div>
+                {lines.filter(l => l.description && l.unit_price).map((l, i) => {
+                  const acc = accounts.find(a => a.id === l.account_id)
+                  const { excl } = calcLine(l)
+                  return excl > 0 ? (
+                    <div key={i}>Cr {acc?.code ?? '4xxx'} {acc?.name?.split(' ')[0] ?? 'Rev'} .. {excl.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</div>
+                  ) : null
+                })}
+                <div>Cr {vatAccount?.code ?? '2100'} VAT Out .. {vatTotal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</div>
               </div>
-              <button className="text-xs mt-2 text-accent">view T-accounts &gt;</button>
             </div>
           )}
         </div>

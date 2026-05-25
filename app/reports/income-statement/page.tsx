@@ -21,19 +21,29 @@ const REPORT_TABS = [
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
-function fyStart(month: MonthValue): MonthValue {
-  const fyEndMonth = 1
-  if (month.month >= fyEndMonth) return { year: month.year, month: fyEndMonth }
-  return { year: month.year - 1, month: fyEndMonth }
+// taxYearEnd = 1-indexed month (1=Jan, 2=Feb … 12=Dec). Returns 0-indexed MonthValue.
+function fyStart(month: MonthValue, taxYearEnd: number): MonthValue {
+  const fyStartMonthZero = taxYearEnd % 12   // e.g. taxYearEnd=2 → 2 (March, 0-indexed)
+  const fyStartYear = month.month >= fyStartMonthZero ? month.year : month.year - 1
+  return { year: fyStartYear, month: fyStartMonthZero }
 }
 
 export default function IncomeStatementPage() {
-  const [period, setPeriod] = useState<MonthValue>(currentMonth())
-  const [ytd, setYtd] = useState(false)
-  const [revenue, setRevenue] = useState<AccRow[]>([])
-  const [expenses, setExpenses] = useState<AccRow[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [period, setPeriod]       = useState<MonthValue>(currentMonth())
+  const [ytd, setYtd]             = useState(false)
+  const [taxYearEnd, setTaxYearEnd] = useState(2)  // Feb default (SA standard)
+  const [revenue, setRevenue]     = useState<AccRow[]>([])
+  const [cogs, setCogs]           = useState<AccRow[]>([])
+  const [expenses, setExpenses]   = useState<AccRow[]>([])
+  const [loading, setLoading]     = useState(true)
+  const [error, setError]         = useState<string | null>(null)
+
+  // Load company tax year end once
+  useEffect(() => {
+    supabase.from('acct_company').select('tax_year_end').maybeSingle().then(({ data }) => {
+      if (data?.tax_year_end) setTaxYearEnd(data.tax_year_end)
+    })
+  }, [])
 
   useEffect(() => {
     async function load() {
@@ -48,7 +58,7 @@ export default function IncomeStatementPage() {
 
       if (accErr || !accounts) { setError('Failed to load accounts'); setLoading(false); return }
 
-      const rangeStart = ytd ? monthRange(fyStart(period)).start : monthRange(period).start
+      const rangeStart = ytd ? monthRange(fyStart(period, taxYearEnd)).start : monthRange(period).start
       const rangeEnd = monthRange(period).end
 
       const { data: lines, error: lineErr } = await supabase
@@ -68,6 +78,7 @@ export default function IncomeStatementPage() {
       }
 
       const rev: AccRow[] = []
+      const cg: AccRow[]  = []
       const exp: AccRow[] = []
 
       for (const acc of accounts) {
@@ -78,33 +89,51 @@ export default function IncomeStatementPage() {
           if (amount !== 0) rev.push({ account: acc, amount })
         } else if (acc.type === 'expense') {
           const amount = acc.normal_balance === 'debit' ? t.debit - t.credit : t.credit - t.debit
-          if (amount !== 0) exp.push({ account: acc, amount })
+          if (amount !== 0) {
+            if (acc.sub_type === 'cogs') cg.push({ account: acc, amount })
+            else exp.push({ account: acc, amount })
+          }
         }
       }
 
       setRevenue(rev)
+      setCogs(cg)
       setExpenses(exp)
       setLoading(false)
     }
     load()
-  }, [period, ytd])
+  }, [period, ytd, taxYearEnd])
 
   const totalRevenue  = revenue.reduce((s, r) => s + r.amount, 0)
+  const totalCogs     = cogs.reduce((s, r) => s + r.amount, 0)
+  const grossProfit   = totalRevenue - totalCogs
   const totalExpenses = expenses.reduce((s, r) => s + r.amount, 0)
-  const netProfit     = totalRevenue - totalExpenses
+  const netProfit     = grossProfit - totalExpenses
 
   const { start, end } = monthRange(period)
-  const fyS = ytd ? monthRange(fyStart(period)).start : start
+  const fyS = ytd ? monthRange(fyStart(period, taxYearEnd)).start : start
   const periodLabel = ytd
     ? `FY YTD: ${new Date(fyS).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })} – ${new Date(end).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}`
     : `${MONTHS[period.month]} ${period.year}`
+
+  const SkeletonRows = ({ n }: { n: number }) => (
+    <>
+      {[...Array(n)].map((_, i) => (
+        <tr key={i} className="t-row">
+          {[...Array(3)].map((_, j) => (
+            <td key={j} className="t-cell"><div className="h-3 rounded animate-pulse bg-paper-edge" /></td>
+          ))}
+        </tr>
+      ))}
+    </>
+  )
 
   return (
     <div className="p-5 max-w-3xl">
       <div className="flex items-start justify-between mb-1">
         <div>
           <h1 className="text-xl font-semibold">Reports · Income Statement</h1>
-          <p className="text-xs mt-0.5 text-ink-2">{periodLabel}</p>
+          <p className="text-xs mt-0.5 text-ink-2">{periodLabel} · posted only</p>
         </div>
         <div className="flex gap-2 items-center">
           <MonthPicker value={period} onChange={setPeriod} />
@@ -136,56 +165,63 @@ export default function IncomeStatementPage() {
             </tr>
           </thead>
           <tbody>
+            {/* Revenue */}
             <tr style={{ background: 'var(--accent-soft)' }}>
               <td colSpan={3} className="px-3 py-1.5 font-semibold text-xs">Revenue</td>
             </tr>
-            {loading
-              ? [...Array(4)].map((_, i) => (
-                  <tr key={i} className="t-row">
-                    {[...Array(3)].map((_, j) => (
-                      <td key={j} className="t-cell">
-                        <div className="h-3 rounded animate-pulse bg-paper-edge" />
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              : revenue.map(r => (
-                  <tr key={r.account.id} className="t-row">
-                    <td className="t-cell font-mono text-ink-2">{r.account.code}</td>
-                    <td className="t-cell">{r.account.name}</td>
-                    <td className="t-cell num">{r.amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</td>
-                  </tr>
-                ))}
-            <tr className="bg-paper-edge border-t-2 border-paper-edge">
+            {loading ? <SkeletonRows n={4} /> : revenue.map(r => (
+              <tr key={r.account.id} className="t-row">
+                <td className="t-cell font-mono text-ink-2">{r.account.code}</td>
+                <td className="t-cell">{r.account.name}</td>
+                <td className="t-cell num">{r.amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</td>
+              </tr>
+            ))}
+            <tr className="bg-paper-edge border-t border-paper-edge">
               <td />
-              <td className="px-3 py-2 font-semibold">Total Revenue</td>
-              <td className="px-3 py-2 num font-semibold">{loading ? '—' : totalRevenue.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</td>
+              <td className="px-3 py-1.5 font-semibold">Total Revenue</td>
+              <td className="px-3 py-1.5 num font-semibold">{loading ? '—' : totalRevenue.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</td>
             </tr>
 
-            <tr style={{ background: 'var(--accent-soft)' }}>
-              <td colSpan={3} className="px-3 py-1.5 font-semibold text-xs">Expenses</td>
-            </tr>
-            {loading
-              ? [...Array(6)].map((_, i) => (
-                  <tr key={i} className="t-row">
-                    {[...Array(3)].map((_, j) => (
-                      <td key={j} className="t-cell">
-                        <div className="h-3 rounded animate-pulse bg-paper-edge" />
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              : expenses.map(r => (
+            {/* Cost of Sales */}
+            {(loading || cogs.length > 0) && (
+              <>
+                <tr style={{ background: 'var(--accent-soft)' }}>
+                  <td colSpan={3} className="px-3 py-1.5 font-semibold text-xs">Cost of Sales</td>
+                </tr>
+                {loading ? <SkeletonRows n={2} /> : cogs.map(r => (
                   <tr key={r.account.id} className="t-row">
                     <td className="t-cell font-mono text-ink-2">{r.account.code}</td>
                     <td className="t-cell">{r.account.name}</td>
-                    <td className="t-cell num">{r.amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</td>
+                    <td className="t-cell num">({r.amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })})</td>
                   </tr>
                 ))}
-            <tr className="bg-paper-edge border-t-2 border-paper-edge">
+              </>
+            )}
+
+            {/* Gross Profit */}
+            <tr style={{ background: 'var(--accent-soft)', borderTop: '2px solid var(--paper-edge)' }}>
               <td />
-              <td className="px-3 py-2 font-semibold">Total Expenses</td>
-              <td className="px-3 py-2 num font-semibold">{loading ? '—' : totalExpenses.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</td>
+              <td className="px-3 py-2 font-bold">Gross Profit</td>
+              <td className="px-3 py-2 num font-bold" style={{ color: grossProfit >= 0 ? 'var(--positive)' : 'var(--negative)' }}>
+                {loading ? '—' : grossProfit.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+              </td>
+            </tr>
+
+            {/* Operating Expenses */}
+            <tr style={{ background: 'var(--accent-soft)' }}>
+              <td colSpan={3} className="px-3 py-1.5 font-semibold text-xs">Operating Expenses</td>
+            </tr>
+            {loading ? <SkeletonRows n={6} /> : expenses.map(r => (
+              <tr key={r.account.id} className="t-row">
+                <td className="t-cell font-mono text-ink-2">{r.account.code}</td>
+                <td className="t-cell">{r.account.name}</td>
+                <td className="t-cell num">({r.amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })})</td>
+              </tr>
+            ))}
+            <tr className="bg-paper-edge border-t border-paper-edge">
+              <td />
+              <td className="px-3 py-1.5 font-semibold">Total Operating Expenses</td>
+              <td className="px-3 py-1.5 num font-semibold">({loading ? '—' : totalExpenses.toLocaleString('en-ZA', { minimumFractionDigits: 2 })})</td>
             </tr>
           </tbody>
           <tfoot>
@@ -199,15 +235,6 @@ export default function IncomeStatementPage() {
           </tfoot>
         </table>
       </div>
-
-      {!loading && (
-        <div
-          className="mt-2 px-3 py-1.5 text-xs rounded inline-flex items-center gap-2 italic text-ink-2"
-          style={{ border: '1px dashed var(--paper-edge)' }}
-        >
-          P&L check · Revenue {totalRevenue.toLocaleString('en-ZA', { minimumFractionDigits: 2 })} − Expenses {totalExpenses.toLocaleString('en-ZA', { minimumFractionDigits: 2 })} = {netProfit.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
-        </div>
-      )}
     </div>
   )
 }

@@ -17,11 +17,17 @@ const REPORT_TABS = [
   { label: 'VAT Detail',       href: '/vat' },
 ]
 
+function isoToday() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+const BATCH = 1000
+
 export default function BalanceSheetPage() {
+  const [asAt, setAsAt]                 = useState(isoToday())
   const [assets, setAssets]             = useState<AccRow[]>([])
   const [liabilities, setLiabilities]   = useState<AccRow[]>([])
   const [equity, setEquity]             = useState<AccRow[]>([])
-  const [retainedEarnings, setRetainedEarnings] = useState(0)
   const [loading, setLoading]           = useState(true)
   const [error, setError]               = useState<string | null>(null)
 
@@ -39,14 +45,14 @@ export default function BalanceSheetPage() {
       if (accErr || !accounts) { setError('Failed to load accounts'); setLoading(false); return }
 
       const totals: Record<string, { debit: number; credit: number }> = {}
-      const BATCH = 1000
       let offset = 0
 
       while (true) {
         const { data: batch, error: lineErr } = await supabase
           .from('acct_journal_lines')
-          .select('account_id, debit, credit, acct_journal_entries!inner(is_posted)')
+          .select('account_id, debit, credit, acct_journal_entries!inner(date, is_posted)')
           .eq('acct_journal_entries.is_posted', true)
+          .lte('acct_journal_entries.date', asAt)
           .range(offset, offset + BATCH - 1)
 
         if (lineErr) { setError('Failed to load journal lines'); setLoading(false); return }
@@ -65,8 +71,6 @@ export default function BalanceSheetPage() {
       const a: AccRow[] = []
       const li: AccRow[] = []
       const eq: AccRow[] = []
-      let totalRev = 0
-      let totalExp = 0
 
       for (const acc of accounts) {
         const t = totals[acc.id]
@@ -80,39 +84,40 @@ export default function BalanceSheetPage() {
         } else if (acc.type === 'equity') {
           const amount = acc.normal_balance === 'credit' ? t.credit - t.debit : t.debit - t.credit
           if (amount !== 0) eq.push({ account: acc, amount })
-        } else if (acc.type === 'revenue') {
-          const amount = acc.normal_balance === 'credit' ? t.credit - t.debit : t.debit - t.credit
-          totalRev += amount
-        } else if (acc.type === 'expense') {
-          const amount = acc.normal_balance === 'debit' ? t.debit - t.credit : t.credit - t.debit
-          totalExp += amount
         }
+        // Revenue and expense accounts are excluded from BS — they live in the IS.
+        // Their net flows into equity via year-end close (3300 → 3100).
       }
 
       setAssets(a)
       setLiabilities(li)
       setEquity(eq)
-      setRetainedEarnings(totalRev - totalExp)
       setLoading(false)
     }
     load()
-  }, [])
+  }, [asAt])
 
-  const totalAssets       = assets.reduce((s, r) => s + r.amount, 0)
-  const totalLiabilities  = liabilities.reduce((s, r) => s + r.amount, 0)
-  const totalEquity       = equity.reduce((s, r) => s + r.amount, 0)
-  const totalEquityRetained = totalEquity + retainedEarnings
-  const totalLiabEquity   = totalLiabilities + totalEquityRetained
-  const isBalanced        = Math.abs(totalAssets - totalLiabEquity) < 0.01
-
-  const today = new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })
+  const totalAssets      = assets.reduce((s, r) => s + r.amount, 0)
+  const totalLiabilities = liabilities.reduce((s, r) => s + r.amount, 0)
+  const totalEquity      = equity.reduce((s, r) => s + r.amount, 0)
+  const totalLiabEquity  = totalLiabilities + totalEquity
+  const isBalanced       = Math.abs(totalAssets - totalLiabEquity) < 0.01
 
   return (
     <div className="p-5 max-w-3xl">
       <div className="flex items-start justify-between mb-1">
         <div>
           <h1 className="text-xl font-semibold">Reports · Balance Sheet</h1>
-          <p className="text-xs mt-0.5 text-ink-2">As at {today}</p>
+          <p className="text-xs mt-0.5 text-ink-2">As at — posted entries only</p>
+        </div>
+        <div className="flex gap-2 items-center">
+          <label className="text-xs text-ink-2">As at</label>
+          <input
+            type="date"
+            value={asAt}
+            onChange={e => setAsAt(e.target.value)}
+            className="input text-xs py-1 px-2"
+          />
         </div>
       </div>
 
@@ -203,22 +208,15 @@ export default function BalanceSheetPage() {
                   <tr key={r.account.id} className="t-row">
                     <td className="t-cell font-mono text-ink-2">{r.account.code}</td>
                     <td className="t-cell">{r.account.name}</td>
-                    <td className="t-cell num">{r.amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</td>
+                    <td className="t-cell num" style={{ color: r.amount < 0 ? 'var(--negative)' : undefined }}>
+                      {r.amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                    </td>
                   </tr>
                 ))}
-            {!loading && (
-              <tr className="t-row">
-                <td className="t-cell font-mono text-ink-2">—</td>
-                <td className="t-cell italic">Retained earnings</td>
-                <td className="t-cell num" style={{ color: retainedEarnings >= 0 ? 'var(--positive)' : 'var(--negative)' }}>
-                  {retainedEarnings.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
-                </td>
-              </tr>
-            )}
             <tr className="bg-paper-edge border-t-2 border-paper-edge">
               <td />
               <td className="px-3 py-2 font-semibold">Total Equity</td>
-              <td className="px-3 py-2 num font-semibold">{loading ? '—' : totalEquityRetained.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</td>
+              <td className="px-3 py-2 num font-semibold">{loading ? '—' : totalEquity.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</td>
             </tr>
           </tbody>
           <tfoot>
@@ -241,7 +239,7 @@ export default function BalanceSheetPage() {
         >
           {isBalanced
             ? '✓ Balanced'
-            : `✗ Out by R ${Math.abs(totalAssets - totalLiabEquity).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`}
+            : `✗ Out by R ${Math.abs(totalAssets - totalLiabEquity).toLocaleString('en-ZA', { minimumFractionDigits: 2 })} — run year-end close (Settings → Year End) to move IS net into equity`}
         </div>
       )}
     </div>
