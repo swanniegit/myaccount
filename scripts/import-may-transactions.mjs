@@ -7,12 +7,12 @@
 import { execSync } from 'child_process'
 import { createClient } from '@supabase/supabase-js'
 
-const SUPABASE_URL = 'https://saujtvflbumngsfcjvdt.supabase.co'
-const SUPABASE_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.' +
-  'eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNhdWp0dmZsYnVtbmdzZmNqdmR0Iiwicm9sZSI6' +
-  'InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NzUzMzY3NiwiZXhwIjoyMDgzMTA5Njc2fQ.' +
-  'qk9lRm63n17ekZyumy3Svae65e2aAX7Mb9IIkDV_-eI'
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  console.error('Missing env vars. Run with: node --env-file=.env.local scripts/import-may-transactions.mjs')
+  process.exit(1)
+}
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 

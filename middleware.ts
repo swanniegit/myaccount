@@ -13,13 +13,19 @@ async function hmacHex(key: string, message: string): Promise<string> {
 }
 
 async function validSession(request: NextRequest): Promise<boolean> {
-  const token = request.cookies.get('session')?.value
-  if (!token) return false
-  const expected = await hmacHex(process.env.SITE_PASSWORD!, 'authenticated')
-  if (token.length !== expected.length) return false
+  const cookie = request.cookies.get('session')?.value
+  if (!cookie) return false
+  const dotIdx = cookie.indexOf('.')
+  if (dotIdx === -1) return false
+  const nonce = cookie.slice(0, dotIdx)
+  const sig = cookie.slice(dotIdx + 1)
+  if (!nonce || !sig) return false
+  const secret = (process.env.SESSION_SECRET ?? '') + process.env.SITE_PASSWORD!
+  const expected = await hmacHex(secret, nonce)
+  if (sig.length !== expected.length) return false
   let diff = 0
-  for (let i = 0; i < token.length; i++) {
-    diff |= token.charCodeAt(i) ^ expected.charCodeAt(i)
+  for (let i = 0; i < sig.length; i++) {
+    diff |= sig.charCodeAt(i) ^ expected.charCodeAt(i)
   }
   return diff === 0
 }
