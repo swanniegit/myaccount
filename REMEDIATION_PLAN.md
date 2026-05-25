@@ -40,11 +40,11 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 
 | # | ID | Task | Status |
 |---|-----|------|--------|
-| 15 | V-03 | Add tax-type model: 2-digit code (01 Standard, 02 Std no input, 03 Zero, 04 Exempt, 05 Capital, 06 Out of scope) with rate, GL accounts, VAT 201 box destination, capital-goods flag | `[ ]` |
-| 16 | V-01 | VAT 201: populate all boxes from tax-type postings (2 zero-rated, 3 exempt, 4 own use, 5 exports, 14 capital goods, 14A, 15A, 16 imports, 17 change in use, 18 bad debts, 19 other) | `[ ]` |
-| 17 | V-02 | Input excl: derive from actual postings per tax type, not `inputVAT / 0.15` | `[ ]` |
-| 18 | V-05 | Net payable: implement full SARS formula (Boxes 4+4A+11) − (Boxes 14+14A+15+15A+16+17+18+19) | `[ ]` |
-| 19 | V-06 | Post VAT clearing journal on period close: Dr 2100 VAT Output / Cr 1300 VAT Input / Cr 2200 SARS Payable | `[ ]` |
+| 15 | V-03 | Add tax-type model: 2-digit code (01 Standard, 02 Std no input, 03 Zero, 04 Exempt, 05 Capital, 06 Out of scope) with rate, GL accounts, VAT 201 box destination, capital-goods flag | `[x]` |
+| 16 | V-01 | VAT 201: populate all boxes from tax-type postings (2 zero-rated, 3 exempt, 4 own use, 5 exports, 14 capital goods, 14A, 15A, 16 imports, 17 change in use, 18 bad debts, 19 other) | `[x]` |
+| 17 | V-02 | Input excl: derive from actual postings per tax type, not `inputVAT / 0.15` | `[x]` |
+| 18 | V-05 | Net payable: implement full SARS formula (Boxes 4+4A+11) − (Boxes 14+14A+15+15A+16+17+18+19) | `[x]` |
+| 19 | V-06 | Post VAT clearing journal on period close: Dr 2100 VAT Output / Cr 1300 VAT Input / Cr 2200 SARS Payable | `[x]` |
 
 ---
 
@@ -89,7 +89,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 |-------|-------|------|-------------|
 | 1 — Audit Blockers | 5 | 5 | 0 |
 | 2 — Financial Statements | 9 | 9 | 0 |
-| 3 — VAT | 5 | 0 | 0 |
+| 3 — VAT | 5 | 5 | 0 |
 | 4 — Pastel Parity | 8 | 0 | 0 |
 | 5 — Remaining | 13 | 0 | 0 |
-| **Total** | **40** | **14** | **0** |
+| **Total** | **40** | **19** | **0** |

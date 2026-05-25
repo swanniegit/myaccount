@@ -3,6 +3,17 @@ export type NormalBalance = 'debit' | 'credit'
 export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'void'
 export type ContactType = 'customer' | 'supplier' | 'both'
 export type EntrySource = 'manual' | 'bank_import' | 'invoice' | 'bill'
+export type TaxTypeCode = '01' | '02' | '03' | '04' | '05' | '06'
+
+export interface TaxType {
+  code: TaxTypeCode
+  name: string
+  rate: number
+  output_box: string | null
+  input_box: string | null
+  is_capital_goods: boolean
+  is_input_allowed: boolean
+}
 
 export interface Account {
   id: string
@@ -78,6 +89,7 @@ export interface InvoiceLine {
   quantity: number
   unit_price: number
   vat_rate: number
+  tax_type_code: TaxTypeCode
   account_id: string | null
   line_total: number
 }
