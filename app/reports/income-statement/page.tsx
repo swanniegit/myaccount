@@ -53,7 +53,8 @@ export default function IncomeStatementPage() {
 
       const { data: lines, error: lineErr } = await supabase
         .from('acct_journal_lines')
-        .select('account_id, debit, credit, acct_journal_entries!inner(date)')
+        .select('account_id, debit, credit, acct_journal_entries!inner(date, is_posted)')
+        .eq('acct_journal_entries.is_posted', true)
         .gte('acct_journal_entries.date', rangeStart)
         .lt('acct_journal_entries.date', rangeEnd)
 
