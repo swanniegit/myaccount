@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { formatMoney, today } from '@/lib/utils'
-import type { Contact, Account } from '@/lib/types'
+import type { Contact, Account, TaxType } from '@/lib/types'
 import { recordJournalEntryClient } from '@/lib/ledger'
 import Button from '@/components/ui/Button'
 
@@ -13,18 +13,20 @@ interface LineItem {
   unit_price: string
   vat_rate: string
   account_id: string
+  tax_type_code: string
 }
 
 export default function NewInvoicePage() {
   const router = useRouter()
   const [contacts, setContacts] = useState<Contact[]>([])
   const [accounts, setAccounts] = useState<Account[]>([])
+  const [taxTypes, setTaxTypes] = useState<TaxType[]>([])
   const [contactId, setContactId] = useState('')
   const [vatRegNo, setVatRegNo] = useState('')
   const [date, setDate] = useState(today())
   const [dueDate, setDueDate] = useState('')
   const [lines, setLines] = useState<LineItem[]>([
-    { description: '', qty: '1', unit_price: '', vat_rate: '15', account_id: '' },
+    { description: '', qty: '1', unit_price: '', vat_rate: '15', account_id: '', tax_type_code: '01' },
   ])
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
@@ -44,9 +46,12 @@ export default function NewInvoicePage() {
         setAccounts(data)
         const firstRevenue = data.find(a => a.type === 'revenue')
         if (firstRevenue) {
-          setLines([{ description: '', qty: '1', unit_price: '', vat_rate: '15', account_id: firstRevenue.id }])
+          setLines([{ description: '', qty: '1', unit_price: '', vat_rate: '15', account_id: firstRevenue.id, tax_type_code: '01' }])
         }
       }
+    })
+    supabase.from('acct_tax_types').select('*').order('code').then(({ data }) => {
+      if (data) setTaxTypes(data as TaxType[])
     })
     supabase
       .from('acct_invoices')
@@ -64,12 +69,16 @@ export default function NewInvoicePage() {
 
   const revenueAccounts = accounts.filter(a => a.type === 'revenue')
 
+  function taxRate(l: LineItem): number {
+    const tt = taxTypes.find(t => t.code === l.tax_type_code)
+    return tt ? Number(tt.rate) : (parseFloat(l.vat_rate) / 100 || 0.15)
+  }
+
   function calcLine(l: LineItem) {
     const qty = parseFloat(l.qty) || 0
     const unit = parseFloat(l.unit_price) || 0
     const excl = qty * unit
-    const vatRate = parseFloat(l.vat_rate) / 100
-    const vat = excl * vatRate
+    const vat = excl * taxRate(l)
     return { excl, vat, total: excl + vat }
   }
 
@@ -108,7 +117,8 @@ export default function NewInvoicePage() {
           description: l.description,
           quantity: parseFloat(l.qty) || 1,
           unit_price: parseFloat(l.unit_price) || 0,
-          vat_rate: parseFloat(l.vat_rate) || 15,
+          vat_rate: taxRate(l) * 100,
+          tax_type_code: l.tax_type_code || '01',
           account_id: l.account_id || null,
           line_total: lt,
         }
@@ -126,25 +136,37 @@ export default function NewInvoicePage() {
         const fallbackRevId = revenueAccounts[0]?.id
 
         if (arAccId && vatAccId) {
-          // Group excl amounts by account_id
-          const revCredits = new Map<string, number>()
+          // Group excl amounts by account_id AND tax_type_code
+          const revCredits = new Map<string, { excl: number; vat: number; taxType: string }>()
           for (const l of validLines) {
-            const { excl } = calcLine(l)
+            const { excl, vat } = calcLine(l)
             if (excl <= 0) continue
             const accId = l.account_id || fallbackRevId
             if (!accId) continue
-            revCredits.set(accId, (revCredits.get(accId) ?? 0) + excl)
+            const taxType = l.tax_type_code || '01'
+            const key = `${accId}:${taxType}`
+            const prev = revCredits.get(key) ?? { excl: 0, vat: 0, taxType }
+            revCredits.set(key, { excl: prev.excl + excl, vat: prev.vat + vat, taxType })
           }
 
           const journalLines = [
             { account_id: arAccId, debit: total, credit: 0, description: `AR — ${invoiceNumber}` },
-            ...Array.from(revCredits.entries()).map(([accId, excl]) => ({
-              account_id: accId,
+            ...Array.from(revCredits.entries()).map(([key, { excl, taxType }]) => ({
+              account_id: key.split(':')[0],
               debit: 0,
               credit: excl,
+              tax_type_code: taxType,
               description: `Revenue — ${invoiceNumber}`,
             })),
-            { account_id: vatAccId, debit: 0, credit: vatTotal, description: `VAT Output — ${invoiceNumber}` },
+            ...Array.from(revCredits.entries())
+              .filter(([, v]) => v.vat > 0)
+              .map(([key, { vat, taxType }]) => ({
+                account_id: vatAccId,
+                debit: 0,
+                credit: vat,
+                tax_type_code: taxType,
+                description: `VAT Output — ${invoiceNumber}`,
+              })),
           ]
 
           try {
@@ -263,8 +285,8 @@ export default function NewInvoicePage() {
             <table className="w-full text-xs mb-1">
               <thead>
                 <tr className="border-b border-paper-edge">
-                  {['Description', 'Account', 'Qty', 'Unit (excl.)', 'VAT', 'Total'].map(h => (
-                    <th key={h} className={`py-1.5 font-medium text-left text-ink-2 ${h !== 'Description' && h !== 'Account' ? 'text-right pl-2' : 'pl-0'}`}>
+                  {['Description', 'Account', 'Tax type', 'Qty', 'Unit (excl.)', 'Total'].map(h => (
+                    <th key={h} className={`py-1.5 font-medium text-left text-ink-2 ${h !== 'Description' && h !== 'Account' && h !== 'Tax type' ? 'text-right pl-2' : 'pl-0'}`}>
                       {h}
                     </th>
                   ))}
@@ -313,14 +335,15 @@ export default function NewInvoicePage() {
                           className="w-full text-right num"
                         />
                       </td>
-                      <td className="py-1.5 pl-2 w-16">
+                      <td className="py-1.5 pl-2 w-28">
                         <select
-                          value={line.vat_rate}
-                          onChange={e => setLines(prev => prev.map((l, j) => j === i ? { ...l, vat_rate: e.target.value } : l))}
-                          className="w-full text-right"
+                          value={line.tax_type_code}
+                          onChange={e => setLines(prev => prev.map((l, j) => j === i ? { ...l, tax_type_code: e.target.value } : l))}
+                          className="w-full text-xs"
                         >
-                          <option value="15">15%</option>
-                          <option value="0">0%</option>
+                          {taxTypes.map(t => (
+                            <option key={t.code} value={t.code}>{t.code} {t.name}</option>
+                          ))}
                         </select>
                       </td>
                       <td className="py-1.5 pl-2 num text-right w-24">
@@ -337,7 +360,7 @@ export default function NewInvoicePage() {
               </tbody>
             </table>
             <button
-              onClick={() => setLines(prev => [...prev, { description: '', qty: '1', unit_price: '', vat_rate: '15', account_id: revenueAccounts[0]?.id ?? '' }])}
+              onClick={() => setLines(prev => [...prev, { description: '', qty: '1', unit_price: '', vat_rate: '15', account_id: revenueAccounts[0]?.id ?? '', tax_type_code: '01' }])}
               className="text-xs mb-4 italic text-muted"
             >
               + add line…

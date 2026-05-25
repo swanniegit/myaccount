@@ -9,6 +9,7 @@ export interface JournalLineInput {
   debit: number
   credit: number
   description?: string
+  tax_type_code?: string | null
 }
 
 export interface RecordEntryInput {
@@ -88,6 +89,7 @@ async function postJournalEntryInline(
         debit: l.debit || 0,
         credit: l.credit || 0,
         description: l.description ?? null,
+        tax_type_code: l.tax_type_code ?? null,
       }))
     )
     .select('id, account_id, debit, credit')
@@ -134,6 +136,7 @@ export async function recordJournalEntry(
       debit: l.debit || 0,
       credit: l.credit || 0,
       description: l.description ?? null,
+      tax_type_code: l.tax_type_code ?? null,
     })),
   })
 
