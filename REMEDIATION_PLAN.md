@@ -75,9 +75,9 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 | 33 | C-04 | COA numbering: decide — keep current textbook scheme or remap to Pastel SA defaults (1000 Sales, 2000 COS, …) | `[x]` |
 | 34 | C-07 | VAT Control (2110): wire up period-end usage per Pastel convention | `[x]` |
 | 35 | C-08 | Add Provisional Tax (asset), Income Tax Expense (P&L), SARS Refund (asset) accounts for IT14 workflow | `[x]` |
-| 36 | V-04 | VAT rate: move from hardcoded `0.15` in `lib/utils.ts` to a table with `effective_from` / `effective_to` | `[x]` |
+| 36 | V-04 | VAT rate: move from hardcoded `0.15` in `lib/utils.ts` to a table with `effective_from` / `effective_to` | `[~]` table + seeds only — app still reads `lib/utils.ts` |
 | 37 | V-07 | Invoice vs payments basis: add per-company switch; apply to VAT 201 period logic | `[~]` deferred — complex scope |
-| 38 | V-08 | Add `vat_date` to invoices: tax point = earliest of invoice date or payment date | `[x]` |
+| 38 | V-08 | Add `vat_date` to invoices: tax point = earliest of invoice date or payment date | `[~]` column + type only — no write path or VAT 201 tax-point logic |
 | 39 | V-09 | Vendor VAT number validation on `createBill` / `approveBill` (required for input claims > R5,000) | `[x]` |
 | 40 | V-10 | VAT-on-imports (SAD500 / customs VAT): add special transaction class | `[~]` deferred — complex scope |
 
@@ -91,5 +91,5 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 | 2 — Financial Statements | 9 | 9 | 0 |
 | 3 — VAT | 5 | 5 | 0 |
 | 4 — Pastel Parity | 8 | 8 | 0 |
-| 5 — Remaining | 13 | 11 | 2 |
-| **Total** | **40** | **38** | **2** |
+| 5 — Remaining | 13 | 9 | 4 |
+| **Total** | **40** | **36** | **4** |

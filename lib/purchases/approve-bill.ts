@@ -8,8 +8,14 @@ export async function approveBill(
   supabase: SupabaseClient,
   bill: Invoice & { lines: InvoiceLine[] }
 ): Promise<void> {
-  // V-09: SARS requires VAT number for supplier invoices > R 5 000
-  if (Number(bill.vat_amount) > 5000 && bill.contact_id) {
+  // V-09: SARS requires supplier VAT number for input claims > R 5 000
+  if (Number(bill.vat_amount) > 5000) {
+    if (!bill.contact_id) {
+      throw new Error(
+        `Bill ${bill.number}: VAT amount exceeds R 5 000 but no supplier is linked. ` +
+        `Assign a supplier with a VAT registration number before approving.`
+      )
+    }
     const { data: contact } = await supabase
       .from('acct_contacts')
       .select('vat_number')

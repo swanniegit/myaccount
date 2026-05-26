@@ -192,10 +192,14 @@ export default function SetupPage() {
                         <td className="t-cell font-medium">{acc.name}</td>
                         <td className="t-cell">
                           <span className="badge">{subBadge(acc)}</span>
-                          {/* C-03: control account badge */}
                           {acc.is_control && (
                             <span className="badge ml-1" style={{ color: 'var(--accent)', borderColor: 'var(--accent)' }}>
                               Control
+                            </span>
+                          )}
+                          {acc.is_contra && (
+                            <span className="badge ml-1" style={{ color: 'var(--ink-2)', borderColor: 'var(--ink-2)' }}>
+                              Contra
                             </span>
                           )}
                         </td>

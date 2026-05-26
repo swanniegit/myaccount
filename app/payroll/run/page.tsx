@@ -39,6 +39,7 @@ export default function RunPayrollPage() {
   useEffect(() => {
     if (!periodId) return
     setLoading(true)
+    setGlError(null)
     fetch(`/api/payroll/run?period_id=${periodId}`)
       .then(r => r.json())
       .then((ps: PayslipWithEmployee[]) => {
@@ -47,6 +48,13 @@ export default function RunPayrollPage() {
       })
       .finally(() => setLoading(false))
   }, [periodId])
+
+  // Restore glPosted state when switching between periods
+  useEffect(() => {
+    const p = periods.find(pp => pp.id === periodId)
+    setGlPosted(p?.status === 'paid')
+    setGlError(null)
+  }, [periodId, periods])
 
   async function calculate() {
     setRunning(true)
@@ -241,7 +249,7 @@ export default function RunPayrollPage() {
                   {Number(selected.sdl) > 0
                     ? `  Cr 2220 SDL .......... ${formatMoney(Number(selected.sdl))}\n`
                     : ''
-                  }{'  '}Cr 1010 Bank ......... {formatMoney(Number(selected.net))}
+                  }{'  '}Cr Bank (default) .... {formatMoney(Number(selected.net))}
                 </div>
               )}
             </div>

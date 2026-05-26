@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
 import { recordJournalEntry } from '@/lib/ledger'
 import { getAccountId } from '@/lib/livehis-push/account-lookup'
+import { getDefaultBankAccountId } from '@/lib/banking/get-default-bank'
 
 // POST /api/payroll/close
 // Body: { period_id: string }
@@ -10,7 +11,7 @@ import { getAccountId } from '@/lib/livehis-push/account-lookup'
 // Cr 2200 PAYE Payable
 // Cr 2210 UIF Payable (employee + employer)
 // Cr 2220 SDL Payable (if > 0)
-// Cr 1010 Bank (net pay)
+// Cr Bank (default bank account)
 // Idempotent: rejects if period is already paid.
 
 export async function POST(req: Request) {
@@ -62,12 +63,12 @@ export async function POST(req: Request) {
   const crSdl      = round2(totalSdl)
   const crBank     = round2(totalNet)
 
-  const [sal5100, paye2200, uif2210, sdl2220, bank1010] = await Promise.all([
+  const [sal5100, paye2200, uif2210, sdl2220, bankId] = await Promise.all([
     getAccountId(supabase, '5100'),
     getAccountId(supabase, '2200'),
     getAccountId(supabase, '2210'),
     getAccountId(supabase, '2220'),
-    getAccountId(supabase, '1010'),
+    getDefaultBankAccountId(supabase),
   ])
 
   const monthStr = `${period.year}-${String(period.month).padStart(2, '0')}`
@@ -79,7 +80,7 @@ export async function POST(req: Request) {
     { account_id: paye2200, debit: 0,          credit: crPaye,  description: `PAYE — ${monthStr}` },
     { account_id: uif2210,  debit: 0,          credit: crUif,   description: `UIF — ${monthStr}` },
     ...(crSdl > 0 ? [{ account_id: sdl2220, debit: 0, credit: crSdl, description: `SDL — ${monthStr}` }] : []),
-    { account_id: bank1010, debit: 0,          credit: crBank,  description: `Net pay — ${monthStr}` },
+    { account_id: bankId,   debit: 0,          credit: crBank,  description: `Net pay — ${monthStr}` },
   ]
 
   try {
@@ -91,8 +92,17 @@ export async function POST(req: Request) {
       lines,
     })
 
-    await supabase.from('pr_payslips').update({ status: 'paid' }).eq('period_id', period_id)
-    await supabase.from('pr_periods').update({ status: 'paid' }).eq('id', period_id)
+    const { error: psUpdateErr } = await supabase
+      .from('pr_payslips')
+      .update({ status: 'paid' })
+      .eq('period_id', period_id)
+    if (psUpdateErr) throw new Error(`GL posted but failed to mark payslips paid: ${psUpdateErr.message}`)
+
+    const { error: pUpdateErr } = await supabase
+      .from('pr_periods')
+      .update({ status: 'paid' })
+      .eq('id', period_id)
+    if (pUpdateErr) throw new Error(`GL posted but failed to mark period paid: ${pUpdateErr.message}`)
 
     return NextResponse.json({
       ok: true,

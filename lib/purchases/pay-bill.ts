@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getAccountId } from '@/lib/livehis-push/account-lookup'
 import { recordJournalEntry } from '@/lib/ledger'
+import { getDefaultBankAccountId } from '@/lib/banking/get-default-bank'
 
 // DR Accounts Payable / CR Bank
 export async function payBill(
@@ -9,11 +10,10 @@ export async function payBill(
   billNumber: string,
   total: number,
   paymentDate: string,
-  bankCode = '1010'
 ): Promise<void> {
   const [apId, bankId] = await Promise.all([
     getAccountId(supabase, '2000'),
-    getAccountId(supabase, bankCode),
+    getDefaultBankAccountId(supabase),
   ])
 
   const description = `Payment — Bill ${billNumber}`
