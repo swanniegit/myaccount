@@ -8,8 +8,6 @@ import type { Invoice, InvoiceLine } from '@/lib/types'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
 
-interface BankOption { id: string; name: string; code: string }
-
 interface Props {
   bill: Invoice
   onUpdated: (bill: Invoice) => void
@@ -30,12 +28,10 @@ function DetailRow({ label, value, bold }: { label: string; value: string; bold?
 
 export default function BillDetail({ bill, onUpdated }: Props) {
   const [lines, setLines]           = useState<InvoiceLine[]>([])
-  const [banks, setBanks]           = useState<BankOption[]>([])
   const [saving, setSaving]         = useState(false)
   const [error, setError]           = useState<string | null>(null)
   const [showPayForm, setShowPayForm] = useState(false)
   const [payDate, setPayDate]       = useState(today)
-  const [bankCode, setBankCode]     = useState('1010')
 
   useEffect(() => {
     setLines([]); setError(null); setShowPayForm(false)
@@ -46,24 +42,6 @@ export default function BillDetail({ bill, onUpdated }: Props) {
       .order('id')
       .then(({ data }) => { if (data) setLines(data as InvoiceLine[]) })
   }, [bill.id])
-
-  useEffect(() => {
-    supabase
-      .from('acct_bank_accounts')
-      .select('id, name, account:acct_accounts!account_id(code)')
-      .eq('is_active', true)
-      .order('name')
-      .then(({ data }) => {
-        if (!data) return
-        const options = data.map((ba: any) => ({
-          id: ba.id,
-          name: ba.name,
-          code: ba.account?.code ?? '1010',
-        }))
-        setBanks(options)
-        if (options.length > 0) setBankCode(options[0].code)
-      })
-  }, [])
 
   async function refresh() {
     const { data } = await supabase
@@ -92,7 +70,7 @@ export default function BillDetail({ bill, onUpdated }: Props) {
   async function handlePay() {
     setSaving(true); setError(null)
     try {
-      await payBill(supabase, bill.id, bill.number, Number(bill.total), payDate, bankCode)
+      await payBill(supabase, bill.id, bill.number, Number(bill.total), payDate)
       await refresh(); setShowPayForm(false)
     } catch (e) { setError(e instanceof Error ? e.message : 'Failed to record payment') }
     finally { setSaving(false) }
@@ -168,16 +146,6 @@ export default function BillDetail({ bill, onUpdated }: Props) {
             <label className="field-label">Payment date</label>
             <input type="date" className="field" value={payDate} onChange={e => setPayDate(e.target.value)} />
           </div>
-          {banks.length > 1 && (
-            <div>
-              <label className="field-label">Pay from account</label>
-              <select className="field" value={bankCode} onChange={e => setBankCode(e.target.value)}>
-                {banks.map(b => (
-                  <option key={b.id} value={b.code}>{b.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
           <div className="flex gap-2">
             <Button variant="ghost" size="sm" onClick={() => setShowPayForm(false)}>Cancel</Button>
             <Button size="sm" disabled={saving} onClick={handlePay}>
