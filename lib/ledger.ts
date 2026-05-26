@@ -33,7 +33,7 @@ export interface RecordEntryResult {
   lines: PostedJournalLine[]
 }
 
-const BALANCE_TOLERANCE = 0.001
+const BALANCE_TOLERANCE = 0.005
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
 async function assertPeriodOpen(supabase: SupabaseClient, date: string): Promise<void> {

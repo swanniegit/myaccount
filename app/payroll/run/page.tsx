@@ -18,6 +18,9 @@ export default function RunPayrollPage() {
   const [step, setStep]           = useState(0) // 0=inputs, 1=calculate, 2=review, 3=pay
   const [loading, setLoading]     = useState(false)
   const [running, setRunning]     = useState(false)
+  const [posting, setPosting]     = useState(false)
+  const [glPosted, setGlPosted]   = useState(false)
+  const [glError, setGlError]     = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/payroll/periods')
@@ -36,6 +39,7 @@ export default function RunPayrollPage() {
   useEffect(() => {
     if (!periodId) return
     setLoading(true)
+    setGlError(null)
     fetch(`/api/payroll/run?period_id=${periodId}`)
       .then(r => r.json())
       .then((ps: PayslipWithEmployee[]) => {
@@ -44,6 +48,13 @@ export default function RunPayrollPage() {
       })
       .finally(() => setLoading(false))
   }, [periodId])
+
+  // Restore glPosted state when switching between periods
+  useEffect(() => {
+    const p = periods.find(pp => pp.id === periodId)
+    setGlPosted(p?.status === 'paid')
+    setGlError(null)
+  }, [periodId, periods])
 
   async function calculate() {
     setRunning(true)
@@ -73,6 +84,23 @@ export default function RunPayrollPage() {
     })
     setStep(3)
     setRunning(false)
+  }
+
+  async function postToGL() {
+    setPosting(true)
+    setGlError(null)
+    const res = await fetch('/api/payroll/close', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ period_id: periodId }),
+    })
+    if (res.ok) {
+      setGlPosted(true)
+    } else {
+      const body = await res.json()
+      setGlError(body.error ?? 'Failed to post to GL')
+    }
+    setPosting(false)
   }
 
   const period = periods.find(p => p.id === periodId)
@@ -215,10 +243,13 @@ export default function RunPayrollPage() {
               <div className="text-xs font-semibold mb-2">Will post to GL</div>
               {selected && (
                 <div className="font-mono text-xs text-ink-2" style={{ lineHeight: 1.7 }}>
-                  Dr 6500 Salaries ......... {formatMoney(Number(selected.gross))}{'\n'}
-                  {'  '}Cr 2100 PAYE control . {formatMoney(Number(selected.paye))}{'\n'}
-                  {'  '}Cr 2110 UIF control .. {formatMoney(Number(selected.uif_employee) + Number(selected.uif_employer))}{'\n'}
-                  {'  '}Cr 1000 Bank ......... {formatMoney(Number(selected.net))}
+                  Dr 5100 Salaries ......... {formatMoney(Number(selected.gross) + Number(selected.uif_employer) + Number(selected.sdl))}{'\n'}
+                  {'  '}Cr 2200 PAYE ......... {formatMoney(Number(selected.paye))}{'\n'}
+                  {'  '}Cr 2210 UIF .......... {formatMoney(Number(selected.uif_employee) + Number(selected.uif_employer))}{'\n'}
+                  {Number(selected.sdl) > 0
+                    ? `  Cr 2220 SDL .......... ${formatMoney(Number(selected.sdl))}\n`
+                    : ''
+                  }{'  '}Cr Bank (default) .... {formatMoney(Number(selected.net))}
                 </div>
               )}
             </div>
@@ -240,12 +271,29 @@ export default function RunPayrollPage() {
       )}
 
       {step === 3 && (
-        <div className="card-accent p-4 text-center mt-4">
-          <div className="text-sm font-semibold mb-1">{periodLabel} · approved ✓</div>
-          <div className="text-xs mb-3 text-ink-2">
-            Generate EFT batch file and file EMP201 with SARS eFiling.
+        <div className="card-accent p-4 mt-4">
+          <div className="text-sm font-semibold mb-1 text-center">{periodLabel} · approved ✓</div>
+          <div className="text-xs mb-3 text-ink-2 text-center">
+            Post the payroll journal to the General Ledger, then generate the EFT batch and file EMP201.
           </div>
+          {glError && (
+            <div className="text-xs px-3 py-2 rounded mb-3 text-negative" style={{ background: 'rgba(220,50,50,0.06)', border: '1px solid var(--negative)' }}>
+              {glError}
+            </div>
+          )}
+          {glPosted && (
+            <div className="text-xs px-3 py-2 rounded mb-3 text-positive text-center" style={{ border: '1px dashed var(--positive)' }}>
+              ✓ Posted to GL
+            </div>
+          )}
           <div className="flex gap-2 justify-center">
+            <Button
+              size="sm"
+              onClick={postToGL}
+              disabled={posting || glPosted}
+            >
+              {posting ? 'Posting…' : glPosted ? 'Posted to GL ✓' : 'Post to GL'}
+            </Button>
             <Button variant="secondary" size="sm">Download EFT batch</Button>
             <Button size="sm" onClick={() => { window.location.href = '/payroll/emp201' }}>
               File EMP201 →

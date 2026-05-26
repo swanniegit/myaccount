@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
       date: clearing_date,
       description: `VAT clearing ${from.slice(0, 7)} to ${to.slice(0, 7)}`,
       reference: ref,
-      source: 'manual',
+      source: 'vat_clearing',
       lines,
     })
 
