@@ -45,7 +45,7 @@ async function assertPeriodOpen(supabase: SupabaseClient, date: string): Promise
     .eq('year', year)
     .eq('month', month)
     .maybeSingle()
-  if (!data || data.status !== 'open') {
+  if (data?.status === 'closed') {
     throw new Error(
       `Period ${MONTH_NAMES[month - 1]} ${year} is closed — open it in Settings → Periods before posting.`
     )
