@@ -1,5 +1,9 @@
+export const dynamic = 'force-dynamic'
+
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
+
+const iso = (d: Date) => d.toISOString().slice(0, 10)
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -8,6 +12,20 @@ export async function GET(request: Request) {
   const monthly     = searchParams.get('monthly') === '1' // aggregate by month instead of day
 
   const supabase = createServerClient()
+
+  // ── Date boundaries (computed first so we only fetch the lines we need) ─────
+  const cfStart = periodStart ? new Date(periodStart) : (() => { const d = new Date(); d.setDate(d.getDate() - 29); return d })()
+  const cfEnd   = periodEnd   ? new Date(periodEnd)   : new Date(Date.now() + 86400000)
+  const cfStartStr = iso(cfStart)
+  const cfEndStr   = iso(cfEnd)
+
+  const ieAnchor = periodStart ? new Date(periodStart) : (() => { const d = new Date(); d.setDate(1); return d })()
+  const ieStart  = new Date(ieAnchor); ieStart.setMonth(ieStart.getMonth() - 5); ieStart.setDate(1)
+  const ieEnd    = new Date(ieAnchor); ieEnd.setMonth(ieEnd.getMonth() + 1); ieEnd.setDate(1) // exclusive
+
+  // Overall window covering both charts — bounds the journal-line fetch.
+  const windowStart = iso(new Date(Math.min(cfStart.getTime(), ieStart.getTime())))
+  const windowEnd   = iso(new Date(Math.max(cfEnd.getTime(),   ieEnd.getTime())))
 
   const { data: accounts } = await supabase
     .from('acct_accounts')
@@ -18,7 +36,7 @@ export async function GET(request: Request) {
   const accById: Record<string, { code: string; type: string; normal_balance: string }> = {}
   for (const a of accounts) accById[a.id] = a
 
-  // Fetch all journal lines with their entry date
+  // Fetch only posted journal lines whose entry date falls in the needed window.
   const allLines: { account_id: string; debit: number; credit: number; date: string }[] = []
   const BATCH = 1000
   let offset = 0
@@ -28,6 +46,8 @@ export async function GET(request: Request) {
       .from('acct_journal_lines')
       .select('account_id, debit, credit, acct_journal_entries!inner(date, is_posted)')
       .eq('acct_journal_entries.is_posted', true)
+      .gte('acct_journal_entries.date', windowStart)
+      .lt('acct_journal_entries.date', windowEnd)
       .range(offset, offset + BATCH - 1)
 
     if (!batch || batch.length === 0) break
@@ -44,21 +64,14 @@ export async function GET(request: Request) {
   }
 
   // ── Cash flow ────────────────────────────────────────────────────────────
-  const cfStart = periodStart ? new Date(periodStart) : (() => { const d = new Date(); d.setDate(d.getDate() - 29); return d })()
-  const cfEnd   = periodEnd   ? new Date(periodEnd)   : new Date(Date.now() + 86400000)
-
-  const cfStartStr = cfStart.toISOString().slice(0, 10)
-  const cfEndStr   = cfEnd.toISOString().slice(0, 10)
-
   const bucketIn:  Record<string, number> = {}
   const bucketOut: Record<string, number> = {}
 
   if (monthly) {
-    // Pre-fill months
     const cur = new Date(cfStart)
     cur.setDate(1)
-    while (cur.toISOString().slice(0, 10) < cfEndStr) {
-      const key = cur.toISOString().slice(0, 7)
+    while (iso(cur) < cfEndStr) {
+      const key = iso(cur).slice(0, 7)
       bucketIn[key]  = 0
       bucketOut[key] = 0
       cur.setMonth(cur.getMonth() + 1)
@@ -74,10 +87,9 @@ export async function GET(request: Request) {
       if (acc.type === 'expense') bucketOut[key] = (bucketOut[key] ?? 0) + (acc.normal_balance === 'debit'  ? l.debit - l.credit  : l.credit - l.debit)
     }
   } else {
-    // Pre-fill days
     const cur = new Date(cfStart)
-    while (cur.toISOString().slice(0, 10) < cfEndStr) {
-      const key = cur.toISOString().slice(0, 10)
+    while (iso(cur) < cfEndStr) {
+      const key = iso(cur)
       bucketIn[key]  = 0
       bucketOut[key] = 0
       cur.setDate(cur.getDate() + 1)
@@ -94,25 +106,21 @@ export async function GET(request: Request) {
 
   const cashFlow = Object.keys(bucketIn)
     .sort()
-    .map(k => ({ date: monthly ? k.slice(5) : k.slice(5), in: Math.max(0, bucketIn[k] ?? 0), out: Math.max(0, bucketOut[k] ?? 0) }))
+    .map(k => ({ date: k.slice(5), in: Math.max(0, bucketIn[k] ?? 0), out: Math.max(0, bucketOut[k] ?? 0) }))
 
   // ── Income vs expense: 6 months ending at selected month ─────────────────
-  const ieAnchor = periodStart ? new Date(periodStart) : (() => { const d = new Date(); d.setDate(1); return d })()
-  const ieStart  = new Date(ieAnchor)
-  ieStart.setMonth(ieStart.getMonth() - 5)
-
   const monthlyIncome:  Record<string, number> = {}
   const monthlyExpense: Record<string, number> = {}
 
   for (let i = 0; i < 6; i++) {
     const d = new Date(ieStart)
     d.setMonth(d.getMonth() + i)
-    const key = d.toISOString().slice(0, 7)
+    const key = iso(d).slice(0, 7)
     monthlyIncome[key]  = 0
     monthlyExpense[key] = 0
   }
 
-  const ieCutoff = ieStart.toISOString().slice(0, 7)
+  const ieCutoff = iso(ieStart).slice(0, 7)
 
   for (const l of allLines) {
     const month = l.date.slice(0, 7)
