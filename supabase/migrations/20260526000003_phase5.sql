@@ -107,7 +107,7 @@ set is_default = true
 where id = (
   select id from acct_bank_accounts
   where is_active = true
-  order by created_at
+  order by name
   limit 1
 )
 and not exists (
