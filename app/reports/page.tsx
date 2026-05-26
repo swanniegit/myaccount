@@ -63,7 +63,7 @@ export default function ReportsPage() {
       label: 'Customer aging',
       sub: loading ? '…' : `${summary?.overdueCount ?? 0} overdue · ${formatMoney(summary?.overdueAmount ?? 0)}`,
       accent: 'var(--ink-2)',
-      href: '/customers',
+      href: '/customers/listing',
       sparkData: summary?.arSparkline ?? [],
       sparkKey: 'v',
       sparkColor: 'var(--accent)',
