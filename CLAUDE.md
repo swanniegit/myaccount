@@ -9,12 +9,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm run dev      # local dev server
-npm run build    # production build (standalone output)
-npm run lint     # next lint / eslint
+npm run dev        # local dev server
+npm run build      # production build (standalone output)
+npm run lint       # next lint / eslint (NOTE: not yet configured — prompts interactively)
+npm test           # vitest run — unit tests in tests/
+npm run test:watch # vitest watch mode
 ```
 
-There is **no test script** in `package.json`. Playwright is installed as a devDependency but no runner is wired up — do not assume `npm test` exists.
+Unit tests use **Vitest** (`tests/**/*.test.ts`), covering pure logic in `lib/` (utils, ledger balance, dashboard launcher config). `vitest.config.ts` maps the `@/` alias and injects dummy Supabase env vars so importing `lib/ledger` (which constructs a client at import time) doesn't throw. Playwright is also installed but no e2e runner is wired up.
 
 Path alias: `@/*` → repo root (e.g. `@/lib/ledger`, `@/components/ui/Button`).
 

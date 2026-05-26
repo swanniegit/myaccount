@@ -43,3 +43,27 @@ describe('launcher module config', () => {
     expect(tileCount(CUSTOMERS_MODULE)).toBe(14)
   })
 })
+
+describe('GL tiles differentiate shared screens via ?view=', () => {
+  const hrefs = GENERAL_LEDGER_MODULE.sections.flatMap(s => s.tiles.map(t => t.href))
+
+  it('routes Cashbook, Cashbook Batches and Bank Reconciliation to distinct banking views', () => {
+    expect(hrefs).toContain('/banking?view=cashbook')
+    expect(hrefs).toContain('/banking?view=batches')
+    expect(hrefs).toContain('/banking?view=reconcile')
+  })
+
+  it('routes Journal Batches and Account Transactions to their own views', () => {
+    expect(hrefs).toContain('/journal?view=batches')
+    expect(hrefs).toContain('/ledger?view=transactions')
+  })
+
+  it('only the two parity Bank Reconciliation tiles share an href', () => {
+    const counts = hrefs.reduce<Record<string, number>>((m, h) => {
+      if (h) m[h] = (m[h] ?? 0) + 1
+      return m
+    }, {})
+    const duplicated = Object.entries(counts).filter(([, n]) => n > 1).map(([h]) => h)
+    expect(duplicated).toEqual(['/banking?view=reconcile'])
+  })
+})

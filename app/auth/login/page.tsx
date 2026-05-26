@@ -1,8 +1,10 @@
 'use client'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
-function makeProblem() {
+interface Problem { question: string; answer: number }
+
+function makeProblem(): Problem {
   const a = Math.floor(Math.random() * 9) + 1
   const b = Math.floor(Math.random() * 9) + 1
   const add = Math.random() > 0.5
@@ -14,10 +16,13 @@ function makeProblem() {
 export default function LoginPage() {
   const router = useRouter()
   const [password, setPassword] = useState('')
-  const [captcha, setCaptcha] = useState(() => makeProblem())
+  // Generate only after mount — Math.random() during SSR mismatches the client render.
+  const [captcha, setCaptcha] = useState<Problem | null>(null)
   const [captchaInput, setCaptchaInput] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => { setCaptcha(makeProblem()) }, [])
 
   const refreshCaptcha = useCallback(() => {
     setCaptcha(makeProblem())
@@ -27,7 +32,7 @@ export default function LoginPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
-    if (parseInt(captchaInput, 10) !== captcha.answer) {
+    if (!captcha || parseInt(captchaInput, 10) !== captcha.answer) {
       setError('Wrong answer — try again.')
       refreshCaptcha()
       return
@@ -76,12 +81,13 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="field-label">What is {captcha.question}?</label>
+            <label className="field-label">What is {captcha?.question ?? '…'}?</label>
             <input
               type="number"
               value={captchaInput}
               onChange={e => setCaptchaInput(e.target.value)}
               required
+              disabled={!captcha}
               className="field outline-none"
               placeholder="Answer"
             />

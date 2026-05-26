@@ -1,15 +1,32 @@
 'use client'
 
+import { Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Button from '@/components/ui/Button'
 import ManualEntryForm from '@/components/journal/ManualEntryForm'
 import PendingTray from '@/components/journal/PendingTray'
 import PostedEntriesTable from '@/components/journal/PostedEntriesTable'
 import TAccountBoard from '@/components/journal/TAccountBoard'
+import JournalBatchesView from '@/components/journal/JournalBatchesView'
 import { useJournalPage } from '@/hooks/useJournalPage'
 import { formatMoney } from '@/lib/utils'
 import type { Account } from '@/lib/types'
 
+function JournalRouter() {
+  const view = useSearchParams().get('view')
+  if (view === 'batches') return <JournalBatchesView />
+  return <JournalCapture />
+}
+
 export default function JournalPage() {
+  return (
+    <Suspense fallback={<div className="p-5 text-sm text-ink-2">Loading…</div>}>
+      <JournalRouter />
+    </Suspense>
+  )
+}
+
+function JournalCapture() {
   const j = useJournalPage()
 
   return (
