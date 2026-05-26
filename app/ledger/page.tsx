@@ -1,13 +1,31 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { formatMoney } from '@/lib/utils'
 import MonthPicker, { currentMonth, monthRange, type MonthValue } from '@/components/ui/MonthPicker'
+import AccountTransactionsView from '@/components/ledger/AccountTransactionsView'
 
 interface AccountRow { code: string; name: string; open: number; dr: number; cr: number; close: number; id: string; type: string }
 interface TLine { date: string; label: string; dr: number; cr: number }
 
+function LedgerRouter() {
+  const view = useSearchParams().get('view')
+  if (view === 'transactions') {
+    return <div className="flex h-full" style={{ minHeight: 0 }}><AccountTransactionsView /></div>
+  }
+  return <LedgerEnquiry />
+}
+
 export default function LedgerPage() {
+  return (
+    <Suspense fallback={<div className="p-5 text-sm text-ink-2">Loading…</div>}>
+      <LedgerRouter />
+    </Suspense>
+  )
+}
+
+function LedgerEnquiry() {
   const [rows, setRows]           = useState<AccountRow[]>([])
   const [filtered, setFiltered]   = useState<AccountRow[]>([])
   const [search, setSearch]       = useState('')
