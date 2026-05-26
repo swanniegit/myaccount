@@ -33,7 +33,11 @@ end $$;
 alter table acct_journal_entries
   add column if not exists journal_number bigint;
 
--- Backfill existing entries: monotonic within source ordered by created_at
+-- Backfill existing entries: monotonic within source ordered by created_at.
+-- acct_je_protect fires on any UPDATE to posted entries, so disable it for this
+-- one-time backfill write, then immediately re-enable.
+alter table acct_journal_entries disable trigger acct_je_protect;
+
 with ranked as (
   select id, source,
     row_number() over (partition by source order by created_at, id) as rn
@@ -43,6 +47,8 @@ update acct_journal_entries je
 set journal_number = r.rn
 from ranked r
 where je.id = r.id;
+
+alter table acct_journal_entries enable trigger acct_je_protect;
 
 -- Advance sequences past the highest backfilled number
 update acct_journal_seqs s
