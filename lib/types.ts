@@ -22,6 +22,7 @@ export interface Account {
   type: AccountType
   sub_type: string | null
   is_vat_account: boolean
+  is_control: boolean
   normal_balance: NormalBalance
   parent_id: string | null
   is_active: boolean
@@ -35,6 +36,8 @@ export interface JournalEntry {
   reference: string | null
   source: EntrySource
   is_posted: boolean
+  journal_number: number | null
+  created_by: string
   created_at: string
   lines?: JournalLine[]
 }
@@ -112,6 +115,8 @@ export interface BankTransaction {
   amount: number
   is_reconciled: boolean
   journal_line_id: string | null
+  reference_type: string | null
+  reference_id: string | null
   created_at: string
 }
 

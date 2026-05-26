@@ -18,6 +18,7 @@ export interface RecordEntryInput {
   reference?: string
   source?: EntrySource
   lines: JournalLineInput[]
+  created_by?: string
 }
 
 export interface PostedJournalLine {
@@ -74,6 +75,7 @@ async function postJournalEntryInline(
       reference: input.reference ?? null,
       source: input.source ?? 'manual',
       is_posted: true,
+      created_by: input.created_by ?? 'system',
     })
     .select()
     .single()
@@ -138,6 +140,7 @@ export async function recordJournalEntry(
       description: l.description ?? null,
       tax_type_code: l.tax_type_code ?? null,
     })),
+    p_created_by: input.created_by ?? 'system',
   })
 
   if (error) {
@@ -153,6 +156,8 @@ export async function recordJournalEntry(
     reference: input.reference ?? null,
     source: input.source ?? 'manual',
     is_posted: true,
+    journal_number: null,
+    created_by: input.created_by ?? 'system',
     created_at: new Date().toISOString(),
   }
 

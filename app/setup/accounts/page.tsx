@@ -4,12 +4,14 @@ import { supabase } from '@/lib/supabase'
 import type { Account, AccountType } from '@/lib/types'
 import Button from '@/components/ui/Button'
 
-const TYPE_BADGE: Record<string, string> = {
-  asset: 'Asset (current)',
-  liability: 'Liability (current)',
-  equity: 'Equity',
-  revenue: 'Income',
-  expense: 'Expense',
+const TYPE_ORDER: AccountType[] = ['asset', 'liability', 'equity', 'revenue', 'expense']
+
+const TYPE_LABEL: Record<AccountType, string> = {
+  asset:     'Assets',
+  liability: 'Liabilities',
+  equity:    'Equity',
+  revenue:   'Revenue',
+  expense:   'Expenses',
 }
 
 function subBadge(acc: Account): string {
@@ -26,20 +28,17 @@ function subBadge(acc: Account): string {
 export default function SetupPage() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [filtered, setFiltered] = useState<Account[]>([])
-  const [search, setSearch] = useState('')
+  const [search, setSearch]     = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
-  const [loading, setLoading] = useState(true)
-  const [showAdd, setShowAdd] = useState(false)
-  const [editing, setEditing] = useState<Account | null>(null)
+  const [loading, setLoading]   = useState(true)
 
+  const [showAdd, setShowAdd] = useState(false)
   const [newCode, setNewCode] = useState('')
   const [newName, setNewName] = useState('')
   const [newType, setNewType] = useState<AccountType>('asset')
-  const [newVat, setNewVat] = useState(false)
+  const [newVat, setNewVat]   = useState(false)
 
-  useEffect(() => {
-    load()
-  }, [])
+  useEffect(() => { load() }, [])
 
   async function load() {
     const { data } = await supabase.from('acct_accounts').select('*').order('code')
@@ -67,11 +66,7 @@ export default function SetupPage() {
       .single()
     if (data) {
       setAccounts(prev => [...prev, data].sort((a, b) => a.code.localeCompare(b.code)))
-      setNewCode('')
-      setNewName('')
-      setNewType('asset')
-      setNewVat(false)
-      setShowAdd(false)
+      setNewCode(''); setNewName(''); setNewType('asset'); setNewVat(false); setShowAdd(false)
     }
   }
 
@@ -79,6 +74,11 @@ export default function SetupPage() {
     await supabase.from('acct_accounts').update({ is_active: false }).eq('id', id)
     setAccounts(prev => prev.filter(a => a.id !== id))
   }
+
+  // C-01: group by type for section headers (respects active type filter)
+  const groups = (typeFilter === 'all' ? TYPE_ORDER : [typeFilter as AccountType])
+    .map(t => ({ type: t, rows: filtered.filter(a => a.type === t) }))
+    .filter(g => g.rows.length > 0)
 
   return (
     <div className="p-5 max-w-4xl">
@@ -128,33 +128,17 @@ export default function SetupPage() {
         <div className="card p-4 mb-3 flex gap-3 items-end flex-wrap">
           <div>
             <label className="field-label">Code</label>
-            <input
-              type="text"
-              value={newCode}
-              onChange={e => setNewCode(e.target.value)}
-              placeholder="e.g. 6100"
-              className="field"
-              style={{ width: 80 }}
-            />
+            <input type="text" value={newCode} onChange={e => setNewCode(e.target.value)}
+              placeholder="e.g. 6100" className="field" style={{ width: 80 }} />
           </div>
           <div>
             <label className="field-label">Name</label>
-            <input
-              type="text"
-              value={newName}
-              onChange={e => setNewName(e.target.value)}
-              placeholder="Account name"
-              className="field"
-              style={{ width: 192 }}
-            />
+            <input type="text" value={newName} onChange={e => setNewName(e.target.value)}
+              placeholder="Account name" className="field" style={{ width: 192 }} />
           </div>
           <div>
             <label className="field-label">Type</label>
-            <select
-              value={newType}
-              onChange={e => setNewType(e.target.value as AccountType)}
-              className="field"
-            >
+            <select value={newType} onChange={e => setNewType(e.target.value as AccountType)} className="field">
               <option value="asset">Asset</option>
               <option value="liability">Liability</option>
               <option value="equity">Equity</option>
@@ -171,16 +155,13 @@ export default function SetupPage() {
         </div>
       )}
 
-      {/* Table */}
+      {/* Table — C-01: sections by type */}
       <div className="card overflow-hidden">
         <table className="w-full text-xs">
           <thead className="t-head">
             <tr>
               {['Code', 'Name', 'Type', 'Tax', 'Balance', 'YTD movement', ''].map((h, i) => (
-                <th
-                  key={i}
-                  className={`text-left font-medium ${h === 'Balance' || h === 'YTD movement' ? 'text-right' : ''}`}
-                >
+                <th key={i} className={`text-left font-medium ${h === 'Balance' || h === 'YTD movement' ? 'text-right' : ''}`}>
                   {h}
                 </th>
               ))}
@@ -197,23 +178,39 @@ export default function SetupPage() {
                     ))}
                   </tr>
                 ))
-              : filtered.map(acc => (
-                  <tr key={acc.id} className="t-row">
-                    <td className="t-cell font-mono text-ink-2">{acc.code}</td>
-                    <td className="t-cell font-medium">{acc.name}</td>
-                    <td className="t-cell">
-                      <span className="badge">{subBadge(acc)}</span>
-                    </td>
-                    <td className="t-cell" style={{ color: acc.is_vat_account ? 'var(--accent)' : 'var(--ink-2)' }}>
-                      {acc.is_vat_account ? '15%' : '—'}
-                    </td>
-                    <td className="t-cell num text-ink-2">—</td>
-                    <td className="t-cell num text-ink-2">—</td>
-                    <td className="t-cell flex gap-2">
-                      <button className="text-xs text-ink-2">↕</button>
-                      <button onClick={() => deleteAccount(acc.id)} className="text-xs text-negative">🗑</button>
-                    </td>
-                  </tr>
+              : groups.map(group => (
+                  <>
+                    {/* C-01: type section header */}
+                    <tr key={`hdr-${group.type}`} style={{ background: 'var(--accent-soft)' }}>
+                      <td colSpan={7} className="px-3 py-1.5 font-semibold text-xs tracking-wide">
+                        {TYPE_LABEL[group.type]}
+                      </td>
+                    </tr>
+                    {group.rows.map(acc => (
+                      <tr key={acc.id} className="t-row">
+                        <td className="t-cell font-mono text-ink-2">{acc.code}</td>
+                        <td className="t-cell font-medium">{acc.name}</td>
+                        <td className="t-cell">
+                          <span className="badge">{subBadge(acc)}</span>
+                          {/* C-03: control account badge */}
+                          {acc.is_control && (
+                            <span className="badge ml-1" style={{ color: 'var(--accent)', borderColor: 'var(--accent)' }}>
+                              Control
+                            </span>
+                          )}
+                        </td>
+                        <td className="t-cell" style={{ color: acc.is_vat_account ? 'var(--accent)' : 'var(--ink-2)' }}>
+                          {acc.is_vat_account ? '15%' : '—'}
+                        </td>
+                        <td className="t-cell num text-ink-2">—</td>
+                        <td className="t-cell num text-ink-2">—</td>
+                        <td className="t-cell flex gap-2">
+                          <button className="text-xs text-ink-2">↕</button>
+                          <button onClick={() => deleteAccount(acc.id)} className="text-xs text-negative">🗑</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </>
                 ))}
           </tbody>
         </table>
