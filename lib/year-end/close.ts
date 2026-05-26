@@ -145,7 +145,7 @@ export async function runYearEndClose(
     date: closingDate,
     description: `Year-end close FY${fiscal_year} — income & expense to 3300`,
     reference: `YE-${fiscal_year}-CLOSE`,
-    source: 'manual',
+    source: 'year_end',
     lines: closingLines,
   })
 
@@ -164,7 +164,7 @@ export async function runYearEndClose(
     date: closingDate,
     description: `Year-end roll-up FY${fiscal_year} — 3300 to retained earnings`,
     reference: `YE-${fiscal_year}-ROLLUP`,
-    source: 'manual',
+    source: 'year_end',
     lines: rollupLines,
   })
 

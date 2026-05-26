@@ -67,19 +67,19 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 
 | # | ID | Task | Status |
 |---|-----|------|--------|
-| 28 | — | Payroll: post salary journal on payroll close (Dr 5100 Salaries / Cr 2200 PAYE / Cr 2210 UIF / Cr 2220 SDL / Cr 1010 Bank) | `[ ]` |
-| 29 | G-07 | Expand JE source enum: add Cash Book, Customer Journal, Supplier Journal, Inventory Journal, Take-On, Year-End, Payroll | `[ ]` |
-| 30 | G-08 | Unify balance tolerance: client (0.001) and RPC (0.01) differ; recommend 0.005 | `[ ]` |
-| 31 | G-11 | Multi-bank routing: replace hardcoded `1010` with selected Cash Book account | `[ ]` |
-| 32 | C-02 | Contra accounts: add `is_contra` boolean (or `contra_to_account_id`) to Allowance for Doubtful Debts and Accumulated Depreciation accounts | `[ ]` |
-| 33 | C-04 | COA numbering: decide — keep current textbook scheme or remap to Pastel SA defaults (1000 Sales, 2000 COS, …) | `[ ]` |
-| 34 | C-07 | VAT Control (2110): wire up period-end usage per Pastel convention | `[ ]` |
-| 35 | C-08 | Add Provisional Tax (asset), Income Tax Expense (P&L), SARS Refund (asset) accounts for IT14 workflow | `[ ]` |
-| 36 | V-04 | VAT rate: move from hardcoded `0.15` in `lib/utils.ts` to a table with `effective_from` / `effective_to` | `[ ]` |
-| 37 | V-07 | Invoice vs payments basis: add per-company switch; apply to VAT 201 period logic | `[ ]` |
-| 38 | V-08 | Add `vat_date` to invoices: tax point = earliest of invoice date or payment date | `[ ]` |
-| 39 | V-09 | Vendor VAT number validation on `createBill` / `approveBill` (required for input claims > R5,000) | `[ ]` |
-| 40 | V-10 | VAT-on-imports (SAD500 / customs VAT): add special transaction class | `[ ]` |
+| 28 | — | Payroll: post salary journal on payroll close (Dr 5100 Salaries / Cr 2200 PAYE / Cr 2210 UIF / Cr 2220 SDL / Cr 1010 Bank) | `[x]` |
+| 29 | G-07 | Expand JE source enum: add Cash Book, Customer Journal, Supplier Journal, Inventory Journal, Take-On, Year-End, Payroll | `[x]` |
+| 30 | G-08 | Unify balance tolerance: client (0.001) and RPC (0.01) differ; recommend 0.005 | `[x]` |
+| 31 | G-11 | Multi-bank routing: replace hardcoded `1010` with selected Cash Book account | `[x]` |
+| 32 | C-02 | Contra accounts: add `is_contra` boolean (or `contra_to_account_id`) to Allowance for Doubtful Debts and Accumulated Depreciation accounts | `[x]` |
+| 33 | C-04 | COA numbering: decide — keep current textbook scheme or remap to Pastel SA defaults (1000 Sales, 2000 COS, …) | `[x]` |
+| 34 | C-07 | VAT Control (2110): wire up period-end usage per Pastel convention | `[x]` |
+| 35 | C-08 | Add Provisional Tax (asset), Income Tax Expense (P&L), SARS Refund (asset) accounts for IT14 workflow | `[x]` |
+| 36 | V-04 | VAT rate: move from hardcoded `0.15` in `lib/utils.ts` to a table with `effective_from` / `effective_to` | `[x]` |
+| 37 | V-07 | Invoice vs payments basis: add per-company switch; apply to VAT 201 period logic | `[~]` deferred — complex scope |
+| 38 | V-08 | Add `vat_date` to invoices: tax point = earliest of invoice date or payment date | `[x]` |
+| 39 | V-09 | Vendor VAT number validation on `createBill` / `approveBill` (required for input claims > R5,000) | `[x]` |
+| 40 | V-10 | VAT-on-imports (SAD500 / customs VAT): add special transaction class | `[~]` deferred — complex scope |
 
 ---
 
@@ -91,5 +91,5 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 | 2 — Financial Statements | 9 | 9 | 0 |
 | 3 — VAT | 5 | 5 | 0 |
 | 4 — Pastel Parity | 8 | 8 | 0 |
-| 5 — Remaining | 13 | 0 | 0 |
-| **Total** | **40** | **27** | **0** |
+| 5 — Remaining | 13 | 11 | 2 |
+| **Total** | **40** | **38** | **2** |

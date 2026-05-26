@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getAccountId } from './account-lookup'
 import { recordJournalEntry } from '@/lib/ledger'
+import { getDefaultBankAccountId } from '@/lib/banking/get-default-bank'
 
 /** DR Bank / CR Accounts Receivable for an invoice payment.
  *  Also writes an acct_bank_transactions row for bank reconciliation (G-12). */
@@ -15,7 +16,7 @@ export async function recordPaymentJournal(
   }
 ): Promise<string> {
   const [bankId, arId] = await Promise.all([
-    getAccountId(supabase, '1010'),
+    getDefaultBankAccountId(supabase),
     getAccountId(supabase, '1100'),
   ])
 

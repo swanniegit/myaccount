@@ -2,7 +2,7 @@ export type AccountType = 'asset' | 'liability' | 'equity' | 'revenue' | 'expens
 export type NormalBalance = 'debit' | 'credit'
 export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'void'
 export type ContactType = 'customer' | 'supplier' | 'both'
-export type EntrySource = 'manual' | 'bank_import' | 'invoice' | 'bill' | 'payment'
+export type EntrySource = 'manual' | 'bank_import' | 'invoice' | 'bill' | 'payment' | 'cash_book' | 'take_on' | 'year_end' | 'payroll' | 'vat_clearing'
 export type TaxTypeCode = '01' | '02' | '03' | '04' | '05' | '06'
 
 export interface TaxType {
@@ -23,6 +23,7 @@ export interface Account {
   sub_type: string | null
   is_vat_account: boolean
   is_control: boolean
+  is_contra: boolean
   normal_balance: NormalBalance
   parent_id: string | null
   is_active: boolean
@@ -72,6 +73,7 @@ export interface Invoice {
   contact_id: string | null
   date: string
   due_date: string | null
+  vat_date: string | null
   status: InvoiceStatus
   invoice_type: 'invoice' | 'bill'
   subtotal: number
@@ -105,6 +107,7 @@ export interface BankAccount {
   account_id: string | null
   balance: number
   is_active: boolean
+  is_default: boolean
 }
 
 export interface BankTransaction {
