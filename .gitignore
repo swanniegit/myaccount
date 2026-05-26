@@ -29,3 +29,6 @@ next-env.d.ts
 myAccount_extracted/
 
 .vercel
+
+# supabase CLI machine-local state
+supabase/.temp/
