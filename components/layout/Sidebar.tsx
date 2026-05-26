@@ -12,6 +12,7 @@ const nav = [
   { href: '/vat',       label: 'VAT 201' },
   { href: '/reports',   label: 'Reports' },
   { href: '/setup',     label: 'Setup' },
+  { href: '/settings',  label: 'Settings' },
 ]
 
 export default function Sidebar() {
