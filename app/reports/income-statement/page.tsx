@@ -9,6 +9,7 @@ import type { MonthValue } from '@/components/ui/MonthPicker'
 interface AccRow {
   account: Account
   amount: number
+  priorAmount: number
 }
 
 const REPORT_TABS = [
@@ -21,24 +22,56 @@ const REPORT_TABS = [
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
-// taxYearEnd = 1-indexed month (1=Jan, 2=Feb … 12=Dec). Returns 0-indexed MonthValue.
 function fyStart(month: MonthValue, taxYearEnd: number): MonthValue {
-  const fyStartMonthZero = taxYearEnd % 12   // e.g. taxYearEnd=2 → 2 (March, 0-indexed)
+  const fyStartMonthZero = taxYearEnd % 12
   const fyStartYear = month.month >= fyStartMonthZero ? month.year : month.year - 1
   return { year: fyStartYear, month: fyStartMonthZero }
 }
 
-export default function IncomeStatementPage() {
-  const [period, setPeriod]       = useState<MonthValue>(currentMonth())
-  const [ytd, setYtd]             = useState(false)
-  const [taxYearEnd, setTaxYearEnd] = useState(2)  // Feb default (SA standard)
-  const [revenue, setRevenue]     = useState<AccRow[]>([])
-  const [cogs, setCogs]           = useState<AccRow[]>([])
-  const [expenses, setExpenses]   = useState<AccRow[]>([])
-  const [loading, setLoading]     = useState(true)
-  const [error, setError]         = useState<string | null>(null)
+function shiftYearBack(dateStr: string): string {
+  return dateStr.replace(/^(\d{4})/, (_, y) => String(parseInt(y) - 1))
+}
 
-  // Load company tax year end once
+type Totals = Record<string, { debit: number; credit: number }>
+
+function calcISAmount(
+  raw: Totals[string] | undefined,
+  normalBalance: 'debit' | 'credit',
+  isRevenue: boolean
+): number {
+  if (!raw) return 0
+  return isRevenue
+    ? (normalBalance === 'credit' ? raw.credit - raw.debit : raw.debit - raw.credit)
+    : (normalBalance === 'debit'  ? raw.debit - raw.credit : raw.credit - raw.debit)
+}
+
+async function fetchPeriodTotals(start: string, end: string): Promise<Totals> {
+  const totals: Totals = {}
+  const { data: lines, error } = await supabase
+    .from('acct_journal_lines')
+    .select('account_id, debit, credit, acct_journal_entries!inner(date, is_posted)')
+    .eq('acct_journal_entries.is_posted', true)
+    .gte('acct_journal_entries.date', start)
+    .lt('acct_journal_entries.date', end)
+  if (error || !lines) return totals
+  for (const l of lines) {
+    if (!totals[l.account_id]) totals[l.account_id] = { debit: 0, credit: 0 }
+    totals[l.account_id].debit  += Number(l.debit)
+    totals[l.account_id].credit += Number(l.credit)
+  }
+  return totals
+}
+
+export default function IncomeStatementPage() {
+  const [period, setPeriod]         = useState<MonthValue>(currentMonth())
+  const [ytd, setYtd]               = useState(false)
+  const [taxYearEnd, setTaxYearEnd] = useState(2)
+  const [revenue, setRevenue]       = useState<AccRow[]>([])
+  const [cogs, setCogs]             = useState<AccRow[]>([])
+  const [expenses, setExpenses]     = useState<AccRow[]>([])
+  const [loading, setLoading]       = useState(true)
+  const [error, setError]           = useState<string | null>(null)
+
   useEffect(() => {
     supabase.from('acct_company').select('tax_year_end').maybeSingle().then(({ data }) => {
       if (data?.tax_year_end) setTaxYearEnd(data.tax_year_end)
@@ -59,39 +92,35 @@ export default function IncomeStatementPage() {
       if (accErr || !accounts) { setError('Failed to load accounts'); setLoading(false); return }
 
       const rangeStart = ytd ? monthRange(fyStart(period, taxYearEnd)).start : monthRange(period).start
-      const rangeEnd = monthRange(period).end
+      const rangeEnd   = monthRange(period).end
 
-      const { data: lines, error: lineErr } = await supabase
-        .from('acct_journal_lines')
-        .select('account_id, debit, credit, acct_journal_entries!inner(date, is_posted)')
-        .eq('acct_journal_entries.is_posted', true)
-        .gte('acct_journal_entries.date', rangeStart)
-        .lt('acct_journal_entries.date', rangeEnd)
+      const priorStart = shiftYearBack(rangeStart)
+      const priorEnd   = shiftYearBack(rangeEnd)
 
-      if (lineErr || !lines) { setError('Failed to load journal lines'); setLoading(false); return }
-
-      const totals: Record<string, { debit: number; credit: number }> = {}
-      for (const l of lines) {
-        if (!totals[l.account_id]) totals[l.account_id] = { debit: 0, credit: 0 }
-        totals[l.account_id].debit  += Number(l.debit)
-        totals[l.account_id].credit += Number(l.credit)
-      }
+      const [totals, priorTotals] = await Promise.all([
+        fetchPeriodTotals(rangeStart, rangeEnd),
+        fetchPeriodTotals(priorStart, priorEnd),
+      ])
 
       const rev: AccRow[] = []
-      const cg: AccRow[]  = []
+      const cg:  AccRow[] = []
       const exp: AccRow[] = []
 
       for (const acc of accounts) {
-        const t = totals[acc.id]
-        if (!t) continue
+        const t  = totals[acc.id]
+        const pt = priorTotals[acc.id]
+        if (!t && !pt) continue
+
         if (acc.type === 'revenue') {
-          const amount = acc.normal_balance === 'credit' ? t.credit - t.debit : t.debit - t.credit
-          if (amount !== 0) rev.push({ account: acc, amount })
+          const amount      = calcISAmount(t,  acc.normal_balance, true)
+          const priorAmount = calcISAmount(pt, acc.normal_balance, true)
+          if (amount !== 0 || priorAmount !== 0) rev.push({ account: acc, amount, priorAmount })
         } else if (acc.type === 'expense') {
-          const amount = acc.normal_balance === 'debit' ? t.debit - t.credit : t.credit - t.debit
-          if (amount !== 0) {
-            if (acc.sub_type === 'cogs') cg.push({ account: acc, amount })
-            else exp.push({ account: acc, amount })
+          const amount      = calcISAmount(t,  acc.normal_balance, false)
+          const priorAmount = calcISAmount(pt, acc.normal_balance, false)
+          if (amount !== 0 || priorAmount !== 0) {
+            if (acc.sub_type === 'cogs') cg.push({ account: acc, amount, priorAmount })
+            else exp.push({ account: acc, amount, priorAmount })
           }
         }
       }
@@ -110,17 +139,29 @@ export default function IncomeStatementPage() {
   const totalExpenses = expenses.reduce((s, r) => s + r.amount, 0)
   const netProfit     = grossProfit - totalExpenses
 
+  const priorRevenue  = revenue.reduce((s, r) => s + r.priorAmount, 0)
+  const priorCogs     = cogs.reduce((s, r) => s + r.priorAmount, 0)
+  const priorGross    = priorRevenue - priorCogs
+  const priorExpenses = expenses.reduce((s, r) => s + r.priorAmount, 0)
+  const priorNet      = priorGross - priorExpenses
+
   const { start, end } = monthRange(period)
   const fyS = ytd ? monthRange(fyStart(period, taxYearEnd)).start : start
   const periodLabel = ytd
     ? `FY YTD: ${new Date(fyS).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })} – ${new Date(end).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}`
     : `${MONTHS[period.month]} ${period.year}`
+  const priorLabel = ytd
+    ? `Prior FY YTD`
+    : `${MONTHS[period.month]} ${period.year - 1}`
 
-  const SkeletonRows = ({ n }: { n: number }) => (
+  const fmt = (n: number) => n.toLocaleString('en-ZA', { minimumFractionDigits: 2 })
+  const fmtNeg = (n: number) => n !== 0 ? `(${fmt(n)})` : '—'
+
+  const SkeletonRows = ({ n, cols }: { n: number; cols: number }) => (
     <>
       {[...Array(n)].map((_, i) => (
         <tr key={i} className="t-row">
-          {[...Array(3)].map((_, j) => (
+          {[...Array(cols)].map((_, j) => (
             <td key={j} className="t-cell"><div className="h-3 rounded animate-pulse bg-paper-edge" /></td>
           ))}
         </tr>
@@ -129,7 +170,7 @@ export default function IncomeStatementPage() {
   )
 
   return (
-    <div className="p-5 max-w-3xl">
+    <div className="p-5 max-w-4xl">
       <div className="flex items-start justify-between mb-1">
         <div>
           <h1 className="text-xl font-semibold">Reports · Income Statement</h1>
@@ -161,38 +202,41 @@ export default function IncomeStatementPage() {
             <tr>
               <th className="text-left w-16">Code</th>
               <th className="text-left">Account</th>
-              <th className="text-right w-32">Amount</th>
+              <th className="text-right w-32">{periodLabel}</th>
+              <th className="text-right w-32 text-ink-2">{priorLabel}</th>
             </tr>
           </thead>
           <tbody>
             {/* Revenue */}
             <tr style={{ background: 'var(--accent-soft)' }}>
-              <td colSpan={3} className="px-3 py-1.5 font-semibold text-xs">Revenue</td>
+              <td colSpan={4} className="px-3 py-1.5 font-semibold text-xs">Revenue</td>
             </tr>
-            {loading ? <SkeletonRows n={4} /> : revenue.map(r => (
+            {loading ? <SkeletonRows n={4} cols={4} /> : revenue.map(r => (
               <tr key={r.account.id} className="t-row">
                 <td className="t-cell font-mono text-ink-2">{r.account.code}</td>
                 <td className="t-cell">{r.account.name}</td>
-                <td className="t-cell num">{r.amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</td>
+                <td className="t-cell num">{r.amount !== 0 ? fmt(r.amount) : '—'}</td>
+                <td className="t-cell num text-ink-2" style={{ opacity: 0.6 }}>{r.priorAmount !== 0 ? fmt(r.priorAmount) : '—'}</td>
               </tr>
             ))}
             <tr className="bg-paper-edge border-t border-paper-edge">
-              <td />
-              <td className="px-3 py-1.5 font-semibold">Total Revenue</td>
-              <td className="px-3 py-1.5 num font-semibold">{loading ? '—' : totalRevenue.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</td>
+              <td /><td className="px-3 py-1.5 font-semibold">Total Revenue</td>
+              <td className="px-3 py-1.5 num font-semibold">{loading ? '—' : fmt(totalRevenue)}</td>
+              <td className="px-3 py-1.5 num text-ink-2" style={{ opacity: 0.6 }}>{loading ? '—' : fmt(priorRevenue)}</td>
             </tr>
 
             {/* Cost of Sales */}
             {(loading || cogs.length > 0) && (
               <>
                 <tr style={{ background: 'var(--accent-soft)' }}>
-                  <td colSpan={3} className="px-3 py-1.5 font-semibold text-xs">Cost of Sales</td>
+                  <td colSpan={4} className="px-3 py-1.5 font-semibold text-xs">Cost of Sales</td>
                 </tr>
-                {loading ? <SkeletonRows n={2} /> : cogs.map(r => (
+                {loading ? <SkeletonRows n={2} cols={4} /> : cogs.map(r => (
                   <tr key={r.account.id} className="t-row">
                     <td className="t-cell font-mono text-ink-2">{r.account.code}</td>
                     <td className="t-cell">{r.account.name}</td>
-                    <td className="t-cell num">({r.amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })})</td>
+                    <td className="t-cell num">{fmtNeg(r.amount)}</td>
+                    <td className="t-cell num text-ink-2" style={{ opacity: 0.6 }}>{fmtNeg(r.priorAmount)}</td>
                   </tr>
                 ))}
               </>
@@ -200,36 +244,41 @@ export default function IncomeStatementPage() {
 
             {/* Gross Profit */}
             <tr style={{ background: 'var(--accent-soft)', borderTop: '2px solid var(--paper-edge)' }}>
-              <td />
-              <td className="px-3 py-2 font-bold">Gross Profit</td>
+              <td /><td className="px-3 py-2 font-bold">Gross Profit</td>
               <td className="px-3 py-2 num font-bold" style={{ color: grossProfit >= 0 ? 'var(--positive)' : 'var(--negative)' }}>
-                {loading ? '—' : grossProfit.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                {loading ? '—' : fmt(grossProfit)}
+              </td>
+              <td className="px-3 py-2 num font-bold text-ink-2" style={{ opacity: 0.6 }}>
+                {loading ? '—' : fmt(priorGross)}
               </td>
             </tr>
 
             {/* Operating Expenses */}
             <tr style={{ background: 'var(--accent-soft)' }}>
-              <td colSpan={3} className="px-3 py-1.5 font-semibold text-xs">Operating Expenses</td>
+              <td colSpan={4} className="px-3 py-1.5 font-semibold text-xs">Operating Expenses</td>
             </tr>
-            {loading ? <SkeletonRows n={6} /> : expenses.map(r => (
+            {loading ? <SkeletonRows n={6} cols={4} /> : expenses.map(r => (
               <tr key={r.account.id} className="t-row">
                 <td className="t-cell font-mono text-ink-2">{r.account.code}</td>
                 <td className="t-cell">{r.account.name}</td>
-                <td className="t-cell num">({r.amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })})</td>
+                <td className="t-cell num">{fmtNeg(r.amount)}</td>
+                <td className="t-cell num text-ink-2" style={{ opacity: 0.6 }}>{fmtNeg(r.priorAmount)}</td>
               </tr>
             ))}
             <tr className="bg-paper-edge border-t border-paper-edge">
-              <td />
-              <td className="px-3 py-1.5 font-semibold">Total Operating Expenses</td>
-              <td className="px-3 py-1.5 num font-semibold">({loading ? '—' : totalExpenses.toLocaleString('en-ZA', { minimumFractionDigits: 2 })})</td>
+              <td /><td className="px-3 py-1.5 font-semibold">Total Operating Expenses</td>
+              <td className="px-3 py-1.5 num font-semibold">{loading ? '—' : fmtNeg(totalExpenses)}</td>
+              <td className="px-3 py-1.5 num text-ink-2" style={{ opacity: 0.6 }}>{loading ? '—' : fmtNeg(priorExpenses)}</td>
             </tr>
           </tbody>
           <tfoot>
             <tr style={{ background: netProfit >= 0 ? 'rgba(0,180,100,0.08)' : 'rgba(220,50,50,0.06)', borderTop: '2px solid var(--paper-edge)' }}>
-              <td />
-              <td className="px-3 py-2.5 font-bold">{netProfit >= 0 ? 'Net Profit' : 'Net Loss'}</td>
+              <td /><td className="px-3 py-2.5 font-bold">{netProfit >= 0 ? 'Net Profit' : 'Net Loss'}</td>
               <td className="px-3 py-2.5 num font-bold" style={{ color: netProfit >= 0 ? 'var(--positive)' : 'var(--negative)' }}>
-                {loading ? '—' : netProfit.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                {loading ? '—' : fmt(netProfit)}
+              </td>
+              <td className="px-3 py-2.5 num font-bold text-ink-2" style={{ opacity: 0.6, color: priorNet >= 0 ? 'var(--positive)' : 'var(--negative)' }}>
+                {loading ? '—' : fmt(priorNet)}
               </td>
             </tr>
           </tfoot>

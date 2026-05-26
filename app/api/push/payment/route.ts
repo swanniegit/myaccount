@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   const { data: invoice, error: invErr } = await supabase
     .from('acct_invoices')
     .select('id, total, status')
-    .eq('external_ref', invoice_external_ref)
+    .eq('external_ref', invoice_external_ref as string)
     .maybeSingle()
 
   if (invErr) {
@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
       amount,
       invoiceExternalRef: invoice_external_ref,
       reference,
+      invoice_id: invoice.id,
     })
 
     const newStatus = amount >= invoice.total ? 'paid' : invoice.status

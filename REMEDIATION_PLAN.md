@@ -52,14 +52,14 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 
 | # | ID | Task | Status |
 |---|-----|------|--------|
-| 20 | G-04 | Add `created_by` / `posted_by` columns to journal entries; attribute every post to the responsible user | `[ ]` |
-| 21 | G-05 | Monotonic journal number sequence: DB-generated per-source sequence (gap = visible red flag) | `[ ]` |
-| 22 | G-09 | Customer/supplier sub-ledger: AR (1100) and AP (2000) as control accounts; each payment/invoice must link to a contact | `[ ]` |
-| 23 | G-12 | Every bill payment and invoice payment must also write an `acct_bank_transactions` row for bank reconciliation | `[ ]` |
-| 24 | C-01 | COA main/sub-account split: commit to `parent_id` usage or add `(main_code, sub_code)` fields; add UI grouping | `[ ]` |
-| 25 | C-03 | Mark Debtors Control (1100) and Creditors Control (2000) as `is_control = true`; block direct journal posting to them | `[ ]` |
-| 26 | R-07 | Comparative columns: prior-period figures on Income Statement, Balance Sheet, Trial Balance | `[ ]` |
-| 27 | R-08 | KPI tiles on TB: replace hardcoded "+8%" with real period-over-period delta or remove | `[ ]` |
+| 20 | G-04 | Add `created_by` / `posted_by` columns to journal entries; attribute every post to the responsible user | `[x]` |
+| 21 | G-05 | Monotonic journal number sequence: DB-generated per-source sequence (gap = visible red flag) | `[x]` |
+| 22 | G-09 | Customer/supplier sub-ledger: AR (1100) and AP (2000) as control accounts; each payment/invoice must link to a contact | `[x]` |
+| 23 | G-12 | Every bill payment and invoice payment must also write an `acct_bank_transactions` row for bank reconciliation | `[x]` |
+| 24 | C-01 | COA main/sub-account split: commit to `parent_id` usage or add `(main_code, sub_code)` fields; add UI grouping | `[x]` |
+| 25 | C-03 | Mark Debtors Control (1100) and Creditors Control (2000) as `is_control = true`; block direct journal posting to them | `[x]` |
+| 26 | R-07 | Comparative columns: prior-period figures on Income Statement, Balance Sheet, Trial Balance | `[x]` |
+| 27 | R-08 | KPI tiles on TB: replace hardcoded "+8%" with real period-over-period delta or remove | `[x]` |
 
 ---
 
@@ -90,6 +90,6 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 | 1 — Audit Blockers | 5 | 5 | 0 |
 | 2 — Financial Statements | 9 | 9 | 0 |
 | 3 — VAT | 5 | 5 | 0 |
-| 4 — Pastel Parity | 8 | 0 | 0 |
+| 4 — Pastel Parity | 8 | 8 | 0 |
 | 5 — Remaining | 13 | 0 | 0 |
-| **Total** | **40** | **19** | **0** |
+| **Total** | **40** | **27** | **0** |

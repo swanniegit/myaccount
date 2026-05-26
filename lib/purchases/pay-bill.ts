@@ -16,16 +16,41 @@ export async function payBill(
     getAccountId(supabase, bankCode),
   ])
 
-  await recordJournalEntry(supabase, {
+  const description = `Payment — Bill ${billNumber}`
+
+  const { lines } = await recordJournalEntry(supabase, {
     date: paymentDate,
-    description: `Payment — Bill ${billNumber}`,
+    description,
     reference: billNumber,
-    source: 'bill',
+    source: 'payment',
     lines: [
-      { account_id: apId, debit: total, credit: 0, description: `AP — ${billNumber}` },
-      { account_id: bankId, debit: 0, credit: total, description: `Bank — ${billNumber}` },
+      { account_id: apId,   debit: total, credit: 0,    description: `AP — ${billNumber}` },
+      { account_id: bankId, debit: 0,     credit: total, description: `Bank — ${billNumber}` },
     ],
   })
+
+  // G-12: write bank transaction row for reconciliation
+  const bankLine = lines.find(l => l.account_id === bankId)
+  if (bankLine) {
+    const { data: bankAcct } = await supabase
+      .from('acct_bank_accounts')
+      .select('id')
+      .eq('account_id', bankId)
+      .maybeSingle()
+
+    if (bankAcct) {
+      const { error: btErr } = await supabase.from('acct_bank_transactions').insert({
+        bank_account_id: bankAcct.id,
+        date:            paymentDate,
+        description,
+        amount:          -total,
+        journal_line_id: bankLine.id,
+        reference_type:  'bill_payment',
+        reference_id:    billId,
+      })
+      if (btErr) console.error('Failed to write bank transaction for bill payment:', btErr.message)
+    }
+  }
 
   const { error: updateErr } = await supabase
     .from('acct_invoices')
