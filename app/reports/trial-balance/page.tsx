@@ -32,6 +32,16 @@ function priorYear(dateStr: string): string {
 const BATCH = 1000
 
 type Totals = Record<string, { debit: number; credit: number }>
+type TBSide = { debit: number; credit: number }
+
+function toTBColumns(raw: TBSide | undefined, normalBalance: 'debit' | 'credit'): TBSide {
+  if (!raw) return { debit: 0, credit: 0 }
+  const bal = normalBalance === 'debit' ? raw.debit - raw.credit : raw.credit - raw.debit
+  return {
+    debit:  normalBalance === 'debit'  && bal > 0 ? bal : (normalBalance === 'credit' && bal < 0 ? Math.abs(bal) : 0),
+    credit: normalBalance === 'credit' && bal > 0 ? bal : (normalBalance === 'debit'  && bal < 0 ? Math.abs(bal) : 0),
+  }
+}
 
 async function fetchTotals(upTo: string): Promise<Totals> {
   const totals: Totals = {}
@@ -86,17 +96,8 @@ export default function TrialBalancePage() {
         const pt = priorTotals[acc.id]
         if (!t && !pt) continue
 
-        function netRow(raw: { debit: number; credit: number } | undefined): { debit: number; credit: number } {
-          if (!raw) return { debit: 0, credit: 0 }
-          const bal = acc.normal_balance === 'debit' ? raw.debit - raw.credit : raw.credit - raw.debit
-          return {
-            debit:  acc.normal_balance === 'debit'  && bal > 0 ? bal : (acc.normal_balance === 'credit' && bal < 0 ? Math.abs(bal) : 0),
-            credit: acc.normal_balance === 'credit' && bal > 0 ? bal : (acc.normal_balance === 'debit'  && bal < 0 ? Math.abs(bal) : 0),
-          }
-        }
-
-        const cur  = netRow(t)
-        const prev = netRow(pt)
+        const cur  = toTBColumns(t,  acc.normal_balance)
+        const prev = toTBColumns(pt, acc.normal_balance)
         result.push({ account: acc, debit: cur.debit, credit: cur.credit, priorDebit: prev.debit, priorCredit: prev.credit })
       }
 

@@ -27,10 +27,10 @@ export async function recordPaymentJournal(
     date: opts.payment_date,
     description,
     reference: opts.reference ?? undefined,
-    source: 'invoice',
+    source: 'payment',
     lines: [
-      { account_id: bankId, debit: opts.amount, credit: 0, description },
-      { account_id: arId,   debit: 0, credit: opts.amount, description },
+      { account_id: bankId, debit: opts.amount, credit: 0,           description },
+      { account_id: arId,   debit: 0,           credit: opts.amount, description },
     ],
   })
 
@@ -44,7 +44,7 @@ export async function recordPaymentJournal(
       .maybeSingle()
 
     if (bankAcct) {
-      await supabase.from('acct_bank_transactions').insert({
+      const { error: btErr } = await supabase.from('acct_bank_transactions').insert({
         bank_account_id: bankAcct.id,
         date:            opts.payment_date,
         description,
@@ -53,6 +53,7 @@ export async function recordPaymentJournal(
         reference_type:  'invoice_payment',
         reference_id:    opts.invoice_id ?? null,
       })
+      if (btErr) console.error('Failed to write bank transaction row:', btErr.message)
     }
   }
 

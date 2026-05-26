@@ -2,7 +2,7 @@ export type AccountType = 'asset' | 'liability' | 'equity' | 'revenue' | 'expens
 export type NormalBalance = 'debit' | 'credit'
 export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'void'
 export type ContactType = 'customer' | 'supplier' | 'both'
-export type EntrySource = 'manual' | 'bank_import' | 'invoice' | 'bill'
+export type EntrySource = 'manual' | 'bank_import' | 'invoice' | 'bill' | 'payment'
 export type TaxTypeCode = '01' | '02' | '03' | '04' | '05' | '06'
 
 export interface TaxType {

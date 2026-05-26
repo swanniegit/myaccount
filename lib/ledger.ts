@@ -156,7 +156,7 @@ export async function recordJournalEntry(
     reference: input.reference ?? null,
     source: input.source ?? 'manual',
     is_posted: true,
-    journal_number: null,
+    journal_number: data.journal_number ?? null,
     created_by: input.created_by ?? 'system',
     created_at: new Date().toISOString(),
   }

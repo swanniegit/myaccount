@@ -30,6 +30,11 @@ const BATCH = 1000
 
 type Totals = Record<string, { debit: number; credit: number }>
 
+function calcAmt(raw: Totals[string] | undefined, normalCredit: boolean): number {
+  if (!raw) return 0
+  return normalCredit ? raw.credit - raw.debit : raw.debit - raw.credit
+}
+
 async function fetchTotals(upTo: string): Promise<Totals> {
   const totals: Totals = {}
   let offset = 0
@@ -86,11 +91,6 @@ export default function BalanceSheetPage() {
         const t  = totals[acc.id]
         const pt = priorTotals[acc.id]
         if (!t && !pt) continue
-
-        function calcAmt(raw: { debit: number; credit: number } | undefined, normalCredit: boolean): number {
-          if (!raw) return 0
-          return normalCredit ? raw.credit - raw.debit : raw.debit - raw.credit
-        }
 
         if (acc.type === 'asset') {
           const amount      = calcAmt(t,  acc.normal_balance === 'credit')

@@ -34,6 +34,17 @@ function shiftYearBack(dateStr: string): string {
 
 type Totals = Record<string, { debit: number; credit: number }>
 
+function calcISAmount(
+  raw: Totals[string] | undefined,
+  normalBalance: 'debit' | 'credit',
+  isRevenue: boolean
+): number {
+  if (!raw) return 0
+  return isRevenue
+    ? (normalBalance === 'credit' ? raw.credit - raw.debit : raw.debit - raw.credit)
+    : (normalBalance === 'debit'  ? raw.debit - raw.credit : raw.credit - raw.debit)
+}
+
 async function fetchPeriodTotals(start: string, end: string): Promise<Totals> {
   const totals: Totals = {}
   const { data: lines, error } = await supabase
@@ -100,20 +111,13 @@ export default function IncomeStatementPage() {
         const pt = priorTotals[acc.id]
         if (!t && !pt) continue
 
-        function amt(raw: { debit: number; credit: number } | undefined, isRevenue: boolean): number {
-          if (!raw) return 0
-          return isRevenue
-            ? (acc.normal_balance === 'credit' ? raw.credit - raw.debit : raw.debit - raw.credit)
-            : (acc.normal_balance === 'debit'  ? raw.debit - raw.credit : raw.credit - raw.debit)
-        }
-
         if (acc.type === 'revenue') {
-          const amount      = amt(t,  true)
-          const priorAmount = amt(pt, true)
+          const amount      = calcISAmount(t,  acc.normal_balance, true)
+          const priorAmount = calcISAmount(pt, acc.normal_balance, true)
           if (amount !== 0 || priorAmount !== 0) rev.push({ account: acc, amount, priorAmount })
         } else if (acc.type === 'expense') {
-          const amount      = amt(t,  false)
-          const priorAmount = amt(pt, false)
+          const amount      = calcISAmount(t,  acc.normal_balance, false)
+          const priorAmount = calcISAmount(pt, acc.normal_balance, false)
           if (amount !== 0 || priorAmount !== 0) {
             if (acc.sub_type === 'cogs') cg.push({ account: acc, amount, priorAmount })
             else exp.push({ account: acc, amount, priorAmount })
