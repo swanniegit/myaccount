@@ -3,23 +3,8 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { toCsv } from '@/lib/csv'
+import { fetchTransactionalExport } from '@/lib/export/transactional'
 import { today } from '@/lib/utils'
-
-interface LineRow {
-  entry_id: string
-  debit: number
-  credit: number
-  description: string | null
-  acct_accounts: { code: string; name: string } | null
-}
-interface EntryRow {
-  id: string
-  date: string
-  journal_number: number | null
-  reference: string | null
-  source: string
-  description: string
-}
 
 function firstOfMonth() {
   const d = new Date()
@@ -43,56 +28,14 @@ export default function TransactionalExportPage() {
   const [msg, setMsg]   = useState<string | null>(null)
 
   async function exportCsv() {
+    if (from > to) { setMsg('“From” date must be on or before “To” date.'); return }
     setBusy(true)
     setMsg(null)
     try {
-      const { data: entries } = await supabase
-        .from('acct_journal_entries')
-        .select('id, date, journal_number, reference, source, description')
-        .gte('date', from).lte('date', to)
-        .eq('is_posted', true)
-        .order('date', { ascending: true })
-        .order('journal_number', { ascending: true })
-
-      const ids = (entries ?? []).map(e => e.id)
-      if (ids.length === 0) { setMsg('No posted entries in this date range.'); return }
-      const entryMap = new Map<string, EntryRow>((entries as EntryRow[]).map(e => [e.id, e]))
-
-      const lines: LineRow[] = []
-      const BATCH = 500
-      for (let i = 0; i < ids.length; i += BATCH) {
-        const { data } = await supabase
-          .from('acct_journal_lines')
-          .select('entry_id, debit, credit, description, acct_accounts(code, name)')
-          .in('entry_id', ids.slice(i, i + BATCH))
-        if (data) lines.push(...(data as any))
-      }
-
-      const header = ['Date', 'JE#', 'Account code', 'Account', 'Description', 'Debit', 'Credit', 'Source', 'Reference']
-      const body = lines
-        .map(l => {
-          const e = entryMap.get(l.entry_id)
-          return {
-            sortDate: e?.date ?? '',
-            sortJe: e?.journal_number ?? 0,
-            cells: [
-              e?.date ?? '',
-              e?.journal_number ?? '',
-              l.acct_accounts?.code ?? '',
-              l.acct_accounts?.name ?? '',
-              l.description ?? e?.description ?? '',
-              Number(l.debit).toFixed(2),
-              Number(l.credit).toFixed(2),
-              e?.source ?? '',
-              e?.reference ?? '',
-            ],
-          }
-        })
-        .sort((a, b) => a.sortDate.localeCompare(b.sortDate) || a.sortJe - b.sortJe)
-        .map(r => r.cells)
-
-      downloadCsv(toCsv([header, ...body]), `transactions_${from}_to_${to}.csv`)
-      setMsg(`Exported ${body.length} posted lines.`)
+      const { header, rows } = await fetchTransactionalExport(supabase, from, to)
+      if (rows.length === 0) { setMsg('No posted entries in this date range.'); return }
+      downloadCsv(toCsv([header, ...rows]), `transactions_${from}_to_${to}.csv`)
+      setMsg(`Exported ${rows.length} posted lines.`)
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Export failed')
     } finally {
