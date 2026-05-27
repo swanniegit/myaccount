@@ -25,7 +25,7 @@ export default function CustomerTransactionsReportPage() {
       .from('acct_invoices')
       .select('id, number, date, status, total, contact_id, acct_contacts(name)')
       .eq('invoice_type', 'invoice')
-      .neq('status', 'void')
+      .in('status', ['sent', 'overdue', 'paid'])
       .gte('date', start).lt('date', end)
       .order('date', { ascending: true })
 
