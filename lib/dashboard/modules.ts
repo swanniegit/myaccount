@@ -50,7 +50,7 @@ export const CUSTOMERS_MODULE: LauncherModule = {
         { label: 'Transactions', href: '/sales' },
         { label: 'Statement Run', href: '/customers/statements/run' },
         { label: 'Interest Charging', href: '/customers/interest', soon: true },
-        { label: 'Credit Note', href: '/sales/credit-note', soon: true },
+        { label: 'Credit Note', href: '/sales/credit-note' },
         { label: 'Invoice', href: '/sales/new' },
       ],
     },
