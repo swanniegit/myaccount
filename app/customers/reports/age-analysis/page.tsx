@@ -1,7 +1,8 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { ageInvoices, type AgeableInvoice } from '@/lib/ar/aging'
 
 interface Bucket { name: string; current: number; d30: number; d60: number; d90: number; total: number }
 
@@ -12,38 +13,31 @@ export default function AgeAnalysisPage() {
   const [rows, setRows]   = useState<Bucket[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => { load() }, [])
-
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
-    const today = new Date()
-    const iso = (d: Date) => d.toISOString().slice(0, 10)
-    const todayStr = iso(today)
-    const daysAgo = (n: number) => { const d = new Date(today); d.setDate(d.getDate() - n); return iso(d) }
-    const d30 = daysAgo(30), d60 = daysAgo(60)
-
     const { data } = await supabase
       .from('acct_invoices')
       .select('total, due_date, date, contact_id, acct_contacts(name)')
       .eq('invoice_type', 'invoice')
       .in('status', ['sent', 'overdue'])
 
-    const byCustomer = new Map<string, Bucket>()
+    const byCustomer = new Map<string, { name: string; invoices: AgeableInvoice[] }>()
     for (const i of (data ?? []) as any[]) {
       const key = i.contact_id ?? (i.acct_contacts?.name ?? '—')
-      const b = byCustomer.get(key) ?? { name: i.acct_contacts?.name ?? '—', current: 0, d30: 0, d60: 0, d90: 0, total: 0 }
-      const eff = i.due_date ?? i.date
-      const t = Number(i.total)
-      if (eff >= todayStr)   b.current += t
-      else if (eff >= d30)   b.d30 += t
-      else if (eff >= d60)   b.d60 += t
-      else                   b.d90 += t
-      b.total += t
-      byCustomer.set(key, b)
+      const g: { name: string; invoices: AgeableInvoice[] } = byCustomer.get(key) ?? { name: i.acct_contacts?.name ?? '—', invoices: [] }
+      g.invoices.push({ total: i.total, due_date: i.due_date, date: i.date })
+      byCustomer.set(key, g)
     }
-    setRows(Array.from(byCustomer.values()).sort((a, b) => b.total - a.total))
+
+    const result: Bucket[] = Array.from(byCustomer.values()).map(g => {
+      const b = ageInvoices(g.invoices)
+      return { name: g.name, ...b }
+    })
+    setRows(result.sort((a, b) => b.total - a.total))
     setLoading(false)
-  }
+  }, [])
+
+  useEffect(() => { load() }, [load])
 
   const tot = rows.reduce(
     (a, b) => ({ current: a.current + b.current, d30: a.d30 + b.d30, d60: a.d60 + b.d60, d90: a.d90 + b.d90, total: a.total + b.total }),
