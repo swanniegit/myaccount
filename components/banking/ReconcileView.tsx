@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Account } from '@/lib/types'
 import { monthRange, type MonthValue } from '@/components/ui/MonthPicker'
@@ -23,19 +23,16 @@ export default function ReconcileView({ account, period }: { account: BankAccoun
   const [allocating2, setAllocating2] = useState(false)
   const [allocError, setAllocError]   = useState<string | null>(null)
 
-  useEffect(() => { loadAccounts() }, [])
-  useEffect(() => { loadTransactions() }, [account, period])
-
-  async function loadAccounts() {
+  const loadAccounts = useCallback(async () => {
     const { data } = await supabase
       .from('acct_accounts')
       .select('id, code, name, type, sub_type, is_vat_account, normal_balance, parent_id')
       .eq('is_active', true)
       .order('code')
     setAccounts((data ?? []) as Account[])
-  }
+  }, [])
 
-  async function loadTransactions() {
+  const loadTransactions = useCallback(async () => {
     setLoading(true)
     const { start, end } = monthRange(period)
     const { data } = await supabase
@@ -50,7 +47,10 @@ export default function ReconcileView({ account, period }: { account: BankAccoun
       setMatched(new Set(data.filter(r => r.is_reconciled || r.journal_line_id).map(r => r.id)))
     }
     setLoading(false)
-  }
+  }, [account, period])
+
+  useEffect(() => { loadAccounts() }, [loadAccounts])
+  useEffect(() => { loadTransactions() }, [loadTransactions])
 
   async function toggleMatch(id: string) {
     const nowMatched = !matched.has(id)

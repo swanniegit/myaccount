@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { monthRange, type MonthValue } from '@/components/ui/MonthPicker'
 import { formatDate } from '@/lib/utils'
@@ -14,9 +14,7 @@ export default function CashbookBatchesView({ account, period }: { account: Bank
   const [batches, setBatches] = useState<Batch[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => { load() }, [account, period])
-
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     const { start, end } = monthRange(period)
     const { data } = await supabase
@@ -37,7 +35,9 @@ export default function CashbookBatchesView({ account, period }: { account: Bank
     }
     setBatches(Array.from(byDate.values()))
     setLoading(false)
-  }
+  }, [account, period])
+
+  useEffect(() => { load() }, [load])
 
   return (
     <>

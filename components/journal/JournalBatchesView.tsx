@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import MonthPicker, { currentMonth, monthRange, type MonthValue } from '@/components/ui/MonthPicker'
 import { formatDate } from '@/lib/utils'
@@ -22,9 +22,7 @@ export default function JournalBatchesView() {
   const [loading, setLoading] = useState(true)
   const [period, setPeriod]   = useState<MonthValue>(currentMonth())
 
-  useEffect(() => { load() }, [period])
-
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     const { start, end } = monthRange(period)
     const { data: entries } = await supabase
@@ -62,7 +60,9 @@ export default function JournalBatchesView() {
       total: totals.get(e.id)?.total ?? 0,
     })))
     setLoading(false)
-  }
+  }, [period])
+
+  useEffect(() => { load() }, [load])
 
   return (
     <div className="p-5 flex flex-col gap-4">

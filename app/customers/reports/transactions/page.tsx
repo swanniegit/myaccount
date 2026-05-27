@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import Badge from '@/components/ui/Badge'
@@ -16,9 +16,7 @@ export default function CustomerTransactionsReportPage() {
   const [loading, setLoading] = useState(true)
   const [period, setPeriod]   = useState<MonthValue>(currentMonth())
 
-  useEffect(() => { load() }, [period])
-
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     const { start, end } = monthRange(period)
     const { data } = await supabase
@@ -39,7 +37,9 @@ export default function CustomerTransactionsReportPage() {
     }
     setGroups(Array.from(byCustomer.values()).sort((a, b) => a.name.localeCompare(b.name)))
     setLoading(false)
-  }
+  }, [period])
+
+  useEffect(() => { load() }, [load])
 
   const grand = groups.reduce((s, g) => s + g.total, 0)
   const count = groups.reduce((s, g) => s + g.invoices.length, 0)

@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { monthRange, type MonthValue } from '@/components/ui/MonthPicker'
 import type { BankAccountLite } from './types'
@@ -17,9 +17,7 @@ export default function CashbookView({ account, period }: { account: BankAccount
   const [opening, setOpening] = useState(0)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => { load() }, [account, period])
-
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     const { start, end } = monthRange(period)
     const [{ data: prior }, { data: inPeriod }] = await Promise.all([
@@ -34,7 +32,9 @@ export default function CashbookView({ account, period }: { account: BankAccount
     setOpening((prior ?? []).reduce((s, r) => s + Number(r.amount), 0))
     setTxns((inPeriod ?? []) as BankTxn[])
     setLoading(false)
-  }
+  }, [account, period])
+
+  useEffect(() => { load() }, [load])
 
   const receipts = txns.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0)
   const payments = txns.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0)

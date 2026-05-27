@@ -1,5 +1,5 @@
 'use client'
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -38,8 +38,6 @@ function LedgerEnquiry() {
   const [entryIds, setEntryIds]   = useState<string[]>([])
   const [postedOnly, setPostedOnly] = useState(true)
 
-  useEffect(() => { setSelected(null); setTLines([]); load() }, [period, postedOnly])
-
   useEffect(() => {
     let r = rows
     if (search) { const q = search.toLowerCase(); r = r.filter(x => x.name.toLowerCase().includes(q) || x.code.includes(q)) }
@@ -47,7 +45,7 @@ function LedgerEnquiry() {
     setFiltered(r)
   }, [search, typeFilter, rows])
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     const { start, end } = monthRange(period)
     let entriesQuery = supabase.from('acct_journal_entries').select('id').gte('date', start).lt('date', end)
@@ -72,7 +70,9 @@ function LedgerEnquiry() {
       return { id: acc.id, code: acc.code, name: acc.name, type: acc.type, open: 0, dr, cr, close: bal }
     })
     setRows(result); setFiltered(result); setLoading(false)
-  }
+  }, [period, postedOnly])
+
+  useEffect(() => { setSelected(null); setTLines([]); load() }, [load])
 
   async function selectAccount(row: AccountRow) {
     setSelected(row)
