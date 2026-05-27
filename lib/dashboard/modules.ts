@@ -49,7 +49,7 @@ export const CUSTOMERS_MODULE: LauncherModule = {
       tiles: [
         { label: 'Transactions', href: '/sales' },
         { label: 'Statement Run', href: '/customers/statements/run' },
-        { label: 'Interest Charging', href: '/customers/interest', soon: true },
+        { label: 'Interest Charging', href: '/customers/interest' },
         { label: 'Credit Note', href: '/sales/credit-note' },
         { label: 'Invoice', href: '/sales/new' },
       ],
