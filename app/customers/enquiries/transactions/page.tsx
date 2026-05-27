@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import Badge from '@/components/ui/Badge'
@@ -34,9 +34,7 @@ export default function TransactionEnquiriesPage() {
       .then(({ data }) => { if (data) setCustomers(data) })
   }, [])
 
-  useEffect(() => { load() }, [contactId, from, to, status])
-
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     let q = supabase
       .from('acct_invoices')
@@ -53,7 +51,9 @@ export default function TransactionEnquiriesPage() {
       total: Number(i.total), contactName: i.acct_contacts?.name ?? '—',
     })))
     setLoading(false)
-  }
+  }, [contactId, from, to, status])
+
+  useEffect(() => { load() }, [load])
 
   const total = rows.reduce((s, r) => s + r.total, 0)
 

@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import MonthPicker, { currentMonth, monthRange, type MonthValue } from '@/components/ui/MonthPicker'
@@ -13,9 +13,7 @@ export default function SalesAnalysisPage() {
   const [loading, setLoading] = useState(true)
   const [period, setPeriod] = useState<MonthValue>(currentMonth())
 
-  useEffect(() => { load() }, [period])
-
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     const { start, end } = monthRange(period)
     const { data } = await supabase
@@ -37,7 +35,9 @@ export default function SalesAnalysisPage() {
     }
     setRows(Array.from(byCustomer.values()).sort((a, b) => b.subtotal - a.subtotal))
     setLoading(false)
-  }
+  }, [period])
+
+  useEffect(() => { load() }, [load])
 
   const tot = rows.reduce(
     (a, b) => ({ count: a.count + b.count, subtotal: a.subtotal + b.subtotal, vat: a.vat + b.vat, total: a.total + b.total }),

@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useMemo } from 'react'
+import { useCallback, useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import MonthPicker, { currentMonth, monthRange, type MonthValue } from '@/components/ui/MonthPicker'
 import { formatDate } from '@/lib/utils'
@@ -22,9 +22,7 @@ export default function AccountTransactionsView() {
   const [loading, setLoading] = useState(true)
   const [period, setPeriod]   = useState<MonthValue>(currentMonth())
 
-  useEffect(() => { load() }, [period])
-
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     const { start, end } = monthRange(period)
     const { data: entries } = await supabase
@@ -64,7 +62,9 @@ export default function AccountTransactionsView() {
     result.sort((a, b) => a.date.localeCompare(b.date) || (a.journalNumber ?? 0) - (b.journalNumber ?? 0))
     setRows(result)
     setLoading(false)
-  }
+  }, [period])
+
+  useEffect(() => { load() }, [load])
 
   const filtered = useMemo(() => {
     if (!search) return rows
