@@ -1,5 +1,6 @@
 'use client'
 import { Suspense, useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { formatMoney } from '@/lib/utils'
@@ -35,8 +36,9 @@ function LedgerEnquiry() {
   const [loading, setLoading]     = useState(true)
   const [period, setPeriod]       = useState<MonthValue>(currentMonth())
   const [entryIds, setEntryIds]   = useState<string[]>([])
+  const [postedOnly, setPostedOnly] = useState(true)
 
-  useEffect(() => { setSelected(null); setTLines([]); load() }, [period])
+  useEffect(() => { setSelected(null); setTLines([]); load() }, [period, postedOnly])
 
   useEffect(() => {
     let r = rows
@@ -48,9 +50,11 @@ function LedgerEnquiry() {
   async function load() {
     setLoading(true)
     const { start, end } = monthRange(period)
+    let entriesQuery = supabase.from('acct_journal_entries').select('id').gte('date', start).lt('date', end)
+    if (postedOnly) entriesQuery = entriesQuery.eq('is_posted', true)
     const [{ data: accounts }, { data: entries }] = await Promise.all([
       supabase.from('acct_accounts').select('*').eq('is_active', true).order('code'),
-      supabase.from('acct_journal_entries').select('id').gte('date', start).lt('date', end),
+      entriesQuery,
     ])
     if (!accounts) { setLoading(false); return }
     const ids = entries?.map(e => e.id) ?? []
@@ -110,7 +114,8 @@ function LedgerEnquiry() {
             <option value="expense">expense</option>
           </select>
           <MonthPicker value={period} onChange={setPeriod} />
-          <button className="pill ml-auto">Export</button>
+          <button className="pill" data-active={postedOnly} onClick={() => setPostedOnly(v => !v)}>posted only</button>
+          <Link href="/dashboard/export" className="pill ml-auto no-underline">Export</Link>
         </div>
 
         <div className="card overflow-hidden">
