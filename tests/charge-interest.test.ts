@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeInterest } from '@/lib/customers/charge-interest'
+import { computeInterest, buildInterestLines } from '@/lib/customers/charge-interest'
 
 describe('computeInterest', () => {
   it('charges annual rate / 12 on overdue balance, rounded', () => {
@@ -19,5 +19,22 @@ describe('computeInterest', () => {
 
   it('zero rate yields no charges', () => {
     expect(computeInterest([{ name: 'A', overdue: 1000 }], 0)).toEqual([])
+  })
+})
+
+describe('buildInterestLines', () => {
+  it('debits AR per customer and credits Interest Income the total — balanced', () => {
+    const items = [
+      { name: 'A', overdue: 1000, interest: 10 },
+      { name: 'B', overdue: 500, interest: 5 },
+    ]
+    const lines = buildInterestLines(items, 'ar', 'income')
+    const dr = lines.reduce((s, l) => s + l.debit, 0)
+    const cr = lines.reduce((s, l) => s + l.credit, 0)
+    expect(dr).toBe(15)
+    expect(cr).toBe(15)
+    expect(lines.filter(l => l.account_id === 'ar')).toHaveLength(2)
+    const income = lines.find(l => l.account_id === 'income')!
+    expect(income.credit).toBe(15)
   })
 })

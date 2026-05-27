@@ -17,6 +17,7 @@ export default function InterestChargingPage() {
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState('')
   const [done, setDone]       = useState<string | null>(null)
+  const [priorRun, setPriorRun] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -43,6 +44,22 @@ export default function InterestChargingPage() {
 
   useEffect(() => { load() }, [load])
 
+  // Duplicate-run guard: flag if an interest run already exists in the charge month.
+  const checkPrior = useCallback(async (d: string) => {
+    const start = d.slice(0, 7) + '-01'
+    const sd = new Date(start)
+    const end = new Date(sd.getFullYear(), sd.getMonth() + 1, 1).toISOString().slice(0, 10)
+    const { data } = await supabase
+      .from('acct_journal_entries')
+      .select('date')
+      .ilike('description', 'Interest charged%')
+      .gte('date', start).lt('date', end)
+      .limit(1)
+    setPriorRun(data && data.length > 0 ? data[0].date : null)
+  }, [])
+
+  useEffect(() => { checkPrior(date) }, [date, checkPrior])
+
   const items: InterestItem[] = computeInterest(overdue, parseFloat(rate) || 0)
   const total = items.reduce((s, i) => s + i.interest, 0)
 
@@ -52,6 +69,7 @@ export default function InterestChargingPage() {
     try {
       const { journalNumber } = await postInterestRun(supabase, { date, items })
       setDone(`Posted interest run JE-${journalNumber ?? '—'} · ${formatMoney(total)} across ${items.length} customers.`)
+      setPriorRun(date)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -82,6 +100,11 @@ export default function InterestChargingPage() {
       </div>
       <p className="text-xs mb-4 text-muted">Monthly charge = overdue balance × rate ÷ 12. Overdue = balances past due date.</p>
 
+      {priorRun && (
+        <div className="notice notice-accent mb-2" style={{ fontSize: 11 }}>
+          Interest has already been charged in {date.slice(0, 7)} (entry dated {priorRun}). Charging again will double up.
+        </div>
+      )}
       {error && <p className="text-xs mb-2 text-negative">{error}</p>}
       {done && <p className="text-xs mb-2 text-positive">{done}</p>}
 

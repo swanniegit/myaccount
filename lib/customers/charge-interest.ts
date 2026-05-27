@@ -22,6 +22,19 @@ export function computeInterest(
     .sort((a, b) => b.interest - a.interest)
 }
 
+/** Pure: Dr AR per customer, Cr Interest Income for the total. Balances by construction. */
+export function buildInterestLines(
+  items: InterestItem[],
+  arAccountId: string,
+  incomeAccountId: string,
+): JournalLineInput[] {
+  const total = round2(items.reduce((s, i) => s + i.interest, 0))
+  return [
+    ...items.map(i => ({ account_id: arAccountId, debit: i.interest, credit: 0, description: `Interest — ${i.name}` })),
+    { account_id: incomeAccountId, debit: 0, credit: total, description: 'Interest income — finance charges' },
+  ]
+}
+
 /** Post an interest run: Dr AR per customer, Cr Interest Income (4300). source 'invoice' clears the control guard. */
 export async function postInterestRun(
   supabase: SupabaseClient,
@@ -35,10 +48,7 @@ export async function postInterestRun(
     getAccountId(supabase, '4300'),
   ])
 
-  const lines: JournalLineInput[] = [
-    ...input.items.map(i => ({ account_id: arId, debit: i.interest, credit: 0, description: `Interest — ${i.name}` })),
-    { account_id: incomeId, debit: 0, credit: total, description: 'Interest income — finance charges' },
-  ]
+  const lines = buildInterestLines(input.items, arId, incomeId)
 
   const { entry } = await recordJournalEntry(supabase, {
     date: input.date,
