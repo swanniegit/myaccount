@@ -1,6 +1,8 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { formatMoney } from '@/lib/utils'
+import { toCsv, parseCsv } from '@/lib/csv'
+import { parseEmployeeCsv, EMPLOYEE_TEMPLATE_HEADER, EMPLOYEE_TEMPLATE_EXAMPLE } from '@/lib/payroll/employee-import'
 import Button from '@/components/ui/Button'
 import type { PrEmployee } from '@/lib/payroll/types'
 
@@ -16,6 +18,8 @@ export default function EmployeesPage() {
     bank_name: '', bank_branch: '', bank_account: '', bank_type: 'cheque',
   })
   const [saving, setSaving] = useState(false)
+  const [importMsg, setImportMsg] = useState<string | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   async function load() {
     const res = await fetch('/api/payroll/employees')
@@ -24,6 +28,41 @@ export default function EmployeesPage() {
   }
 
   useEffect(() => { load() }, [])
+
+  function downloadTemplate() {
+    const csv = toCsv([EMPLOYEE_TEMPLATE_HEADER, EMPLOYEE_TEMPLATE_EXAMPLE])
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = 'employee-import-template.csv'; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setImportMsg(null)
+    const { employees: parsed, errors } = parseEmployeeCsv(parseCsv(await file.text()))
+    if (errors.length) {
+      setImportMsg(`Import blocked — ${errors.slice(0, 5).join('; ')}${errors.length > 5 ? ` (+${errors.length - 5} more)` : ''}`)
+      return
+    }
+    if (parsed.length === 0) { setImportMsg('No employee rows found in the file.'); return }
+    const res = await fetch('/api/payroll/employees/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employees: parsed }),
+    })
+    if (res.ok) {
+      const { inserted } = await res.json()
+      setImportMsg(`Imported ${inserted} employees.`)
+      load()
+    } else {
+      const { error } = await res.json().catch(() => ({ error: 'Import failed' }))
+      setImportMsg(`Import failed: ${error}`)
+    }
+  }
 
   async function save() {
     setSaving(true)
@@ -59,10 +98,14 @@ export default function EmployeesPage() {
           {employees.length} active · annual CTC {formatMoney(totalGross * 12)}
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" size="sm">Import IRP5</Button>
+          <input ref={fileRef} type="file" accept=".csv" onChange={handleFile} className="hidden" />
+          <Button variant="ghost" size="sm" onClick={downloadTemplate}>Template</Button>
+          <Button variant="secondary" size="sm" onClick={() => fileRef.current?.click()}>Import CSV</Button>
           <Button size="sm" onClick={() => setShowForm(!showForm)}>+ New employee</Button>
         </div>
       </div>
+
+      {importMsg && <div className="notice notice-dashed mb-4 text-xs">{importMsg}</div>}
 
       {showForm && (
         <div className="card-accent p-4 mb-4">
