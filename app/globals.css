@@ -386,3 +386,10 @@ table { border-collapse: collapse; }
     padding: 0.0625rem 0.3125rem;
   }
 }
+
+/* ── Print: drop app chrome so statements/reports print clean ──── */
+@media print {
+  aside { display: none !important; }
+  .no-print { display: none !important; }
+  main { overflow: visible !important; }
+}

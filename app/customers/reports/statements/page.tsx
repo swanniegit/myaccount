@@ -1,7 +1,7 @@
 'use client'
 import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Badge from '@/components/ui/Badge'
 import { formatDate } from '@/lib/utils'
@@ -13,9 +13,15 @@ interface Inv { id: string; number: string; date: string; due_date: string | nul
 const money = (n: number) => n.toLocaleString('en-ZA', { minimumFractionDigits: 2 })
 
 function StatementsInner() {
+  const router = useRouter()
   const initial = useSearchParams().get('customer') ?? ''
   const [customers, setCustomers] = useState<Customer[]>([])
   const [contactId, setContactId] = useState(initial)
+
+  function selectCustomer(id: string) {
+    setContactId(id)
+    router.replace(id ? `/customers/reports/statements?customer=${id}` : '/customers/reports/statements')
+  }
   const [invoices, setInvoices]   = useState<Inv[]>([])
   const [loading, setLoading]     = useState(false)
 
@@ -51,14 +57,14 @@ function StatementsInner() {
     <div className="p-5 max-w-3xl">
       <div className="mb-4 flex items-end justify-between">
         <div>
-          <Link href="/customers/reports" className="text-xs text-accent hover:underline">← Reports</Link>
+          <Link href="/customers/reports" className="text-xs text-accent hover:underline no-print">← Reports</Link>
           <h1 className="text-xl font-semibold mt-1">Statements</h1>
-          <p className="text-xs mt-0.5 text-ink-2">Single-customer statement</p>
+          <p className="text-xs mt-0.5 text-ink-2">Single-customer statement · balance due reflects open invoices only</p>
         </div>
-        <div className="flex gap-2 items-end">
+        <div className="flex gap-2 items-end no-print">
           <div>
             <label className="field-label">Customer</label>
-            <select className="field" style={{ minWidth: 200 }} value={contactId} onChange={e => setContactId(e.target.value)}>
+            <select className="field" style={{ minWidth: 200 }} value={contactId} onChange={e => selectCustomer(e.target.value)}>
               <option value="">Select customer…</option>
               {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>

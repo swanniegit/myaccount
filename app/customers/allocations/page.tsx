@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { formatDate } from '@/lib/utils'
@@ -12,9 +12,7 @@ export default function AllocationsPage() {
   const [rows, setRows]   = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => { load() }, [])
-
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     const { data } = await supabase
       .from('acct_invoices')
@@ -26,7 +24,9 @@ export default function AllocationsPage() {
       id: i.id, number: i.number, date: i.date, total: Number(i.total), contactName: i.acct_contacts?.name ?? '—',
     })))
     setLoading(false)
-  }
+  }, [])
+
+  useEffect(() => { load() }, [load])
 
   const total = rows.reduce((s, r) => s + r.total, 0)
 

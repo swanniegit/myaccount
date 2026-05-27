@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { ageInvoices, type AgeableInvoice } from '@/lib/ar/aging'
@@ -13,9 +13,7 @@ export default function AgeAnalysisPage() {
   const [rows, setRows]   = useState<Bucket[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => { load() }, [])
-
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     const { data } = await supabase
       .from('acct_invoices')
@@ -37,7 +35,9 @@ export default function AgeAnalysisPage() {
     })
     setRows(result.sort((a, b) => b.total - a.total))
     setLoading(false)
-  }
+  }, [])
+
+  useEffect(() => { load() }, [load])
 
   const tot = rows.reduce(
     (a, b) => ({ current: a.current + b.current, d30: a.d30 + b.d30, d60: a.d60 + b.d60, d90: a.d90 + b.d90, total: a.total + b.total }),

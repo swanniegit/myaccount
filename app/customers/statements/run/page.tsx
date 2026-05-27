@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { ageInvoices, type AgeableInvoice } from '@/lib/ar/aging'
@@ -21,9 +21,7 @@ export default function StatementRunPage() {
   const [rows, setRows]   = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => { load() }, [])
-
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     const { data } = await supabase
       .from('acct_invoices')
@@ -45,7 +43,9 @@ export default function StatementRunPage() {
       .sort((a, b) => b.total - a.total)
     setRows(result)
     setLoading(false)
-  }
+  }, [])
+
+  useEffect(() => { load() }, [load])
 
   const grand = rows.reduce((s, r) => s + r.total, 0)
 
