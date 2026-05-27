@@ -14,7 +14,7 @@ export const GENERAL_LEDGER_MODULE: LauncherModule = {
         { label: 'Cashbook Batches', href: '/banking?view=batches' },
         { label: 'Journal Batches', href: '/journal?view=batches' },
         { label: 'Bank Reconciliation', href: '/banking?view=reconcile' },
-        { label: 'Transactional Export', href: '/dashboard/export', soon: true },
+        { label: 'Transactional Export', href: '/dashboard/export' },
       ],
     },
     {
