@@ -35,6 +35,7 @@ export default function CreditNotePage() {
   const revenue  = accounts.find(a => a.id === revenueAccountId)
 
   async function post() {
+    if (!contactId) { setError('Select a customer.'); return }
     if (total <= 0) { setError('Enter an amount greater than zero.'); return }
     setSaving(true); setError(''); setDone(null)
     try {
@@ -100,7 +101,7 @@ export default function CreditNotePage() {
             </div>
           </div>
 
-          <Button size="sm" onClick={post} disabled={saving || total <= 0 || !revenueAccountId}>
+          <Button size="sm" onClick={post} disabled={saving || total <= 0 || !revenueAccountId || !contactId}>
             {saving ? 'Posting…' : 'Post credit note'}
           </Button>
           {error && <p className="text-xs mt-2 text-negative">{error}</p>}
