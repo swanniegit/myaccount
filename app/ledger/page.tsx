@@ -155,7 +155,7 @@ function LedgerEnquiry() {
             <span className="text-xs text-muted">⌕</span>
             <input type="text" placeholder="search" value={search} onChange={e => setSearch(e.target.value)} />
           </div>
-          <select className="field" style={{ minWidth: 90 }} value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
+          <select className="field" style={{ minWidth: 90, maxWidth: 140 }} value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
             <option value="all">all</option>
             <option value="asset">asset</option>
             <option value="liability">liability</option>
