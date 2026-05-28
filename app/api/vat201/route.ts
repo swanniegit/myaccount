@@ -16,6 +16,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'from and to query params required (YYYY-MM-DD)' }, { status: 400 })
   }
 
+  const fromDate = new Date(from)
+  const toDate   = new Date(to)
+  if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
+    return NextResponse.json({ error: 'Invalid date — use YYYY-MM-DD' }, { status: 400 })
+  }
+  if (fromDate > toDate) {
+    return NextResponse.json({ error: "'from' must be on or before 'to'" }, { status: 400 })
+  }
+
   const supabase = createServerClient()
 
   try {

@@ -22,11 +22,12 @@ async function validSession(request: NextRequest): Promise<boolean> {
   if (!nonce || !sig) return false
   const secret = (process.env.SESSION_SECRET ?? '') + process.env.SITE_PASSWORD!
   const expected = await hmacHex(secret, nonce)
-  if (sig.length !== expected.length) return false
+  const enc = new TextEncoder()
+  const sigBytes = enc.encode(sig)
+  const expBytes = enc.encode(expected)
+  if (sigBytes.length !== expBytes.length) return false
   let diff = 0
-  for (let i = 0; i < sig.length; i++) {
-    diff |= sig.charCodeAt(i) ^ expected.charCodeAt(i)
-  }
+  for (let i = 0; i < sigBytes.length; i++) diff |= sigBytes[i] ^ expBytes[i]
   return diff === 0
 }
 

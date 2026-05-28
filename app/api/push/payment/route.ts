@@ -35,12 +35,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
   }
 
+  // Idempotency: one payment journal per invoice+date combination
+  const payRef = `PAY-${invoice_external_ref}-${payment_date}`
+  const { data: existingPayment } = await supabase
+    .from('acct_journal_entries')
+    .select('id')
+    .eq('reference', payRef)
+    .eq('source', 'payment')
+    .maybeSingle()
+
+  if (existingPayment) {
+    return NextResponse.json({ success: true, duplicate: true })
+  }
+
   try {
     await recordPaymentJournal(supabase, {
       payment_date,
       amount,
       invoiceExternalRef: invoice_external_ref,
-      reference,
+      reference: payRef,
       invoice_id: invoice.id,
     })
 
