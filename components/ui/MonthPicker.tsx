@@ -37,9 +37,9 @@ export default function MonthPicker({ value, onChange }: { value: MonthValue; on
 
   return (
     <div className="month-picker">
-      <button className="month-picker-btn" onClick={prev}>←</button>
+      <button className="month-picker-btn" onClick={prev}>&#8249;</button>
       <span className="month-picker-label">{MONTHS[value.month]} {value.year}</span>
-      <button className="month-picker-btn" onClick={next} disabled={isNow}>→</button>
+      <button className="month-picker-btn" onClick={next} disabled={isNow}>&#8250;</button>
     </div>
   )
 }
