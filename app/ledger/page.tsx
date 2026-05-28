@@ -107,17 +107,37 @@ function LedgerEnquiry() {
   async function selectAccount(row: AccountRow) {
     setSelected(row)
     if (entryIds.length === 0) { setTLines([]); return }
-    const { data } = await supabase
-      .from('acct_journal_lines')
-      .select('debit, credit, description, created_at, acct_journal_entries(date, description)')
-      .eq('account_id', row.id).in('entry_id', entryIds).order('created_at', { ascending: true })
-    if (data) {
-      setTLines(data.map(l => ({
-        date:  (l as any).acct_journal_entries?.date ?? '',
-        label: (l as any).acct_journal_entries?.description ?? l.description ?? '—',
+
+    // Batch .in() at 500 — large periods exceed Supabase URL limits
+    const rawLines: { debit: number; credit: number; description: string; entry_id: string }[] = []
+    for (let i = 0; i < entryIds.length; i += 500) {
+      const { data } = await supabase
+        .from('acct_journal_lines')
+        .select('debit, credit, description, entry_id')
+        .eq('account_id', row.id)
+        .in('entry_id', entryIds.slice(i, i + 500))
+      if (data) rawLines.push(...data)
+    }
+
+    // Fetch entry dates/descriptions for the lines we got back
+    const seenIds = Array.from(new Set(rawLines.map(l => l.entry_id)))
+    const entryMap: Record<string, { date: string; description: string }> = {}
+    for (let i = 0; i < seenIds.length; i += 500) {
+      const { data } = await supabase
+        .from('acct_journal_entries')
+        .select('id, date, description')
+        .in('id', seenIds.slice(i, i + 500))
+        .order('date', { ascending: true })
+      if (data) data.forEach(e => { entryMap[e.id] = { date: e.date, description: e.description } })
+    }
+
+    setTLines(rawLines
+      .sort((a, b) => (entryMap[a.entry_id]?.date ?? '').localeCompare(entryMap[b.entry_id]?.date ?? ''))
+      .map(l => ({
+        date:  entryMap[l.entry_id]?.date  ?? '',
+        label: entryMap[l.entry_id]?.description ?? l.description ?? '—',
         dr: Number(l.debit), cr: Number(l.credit),
       })))
-    }
   }
 
   const tDr  = tLines.reduce((s,l) => s + l.dr, 0)
