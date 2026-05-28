@@ -48,26 +48,56 @@ function LedgerEnquiry() {
   const load = useCallback(async () => {
     setLoading(true)
     const { start, end } = monthRange(period)
+
+    // Fetch accounts + current-period entries in parallel
     let entriesQuery = supabase.from('acct_journal_entries').select('id').gte('date', start).lt('date', end)
     if (postedOnly) entriesQuery = entriesQuery.eq('is_posted', true)
-    const [{ data: accounts }, { data: entries }] = await Promise.all([
+    const [{ data: accounts }, { data: entries }, { data: priorEntries }] = await Promise.all([
       supabase.from('acct_accounts').select('*').eq('is_active', true).order('code'),
       entriesQuery,
+      // Prior posted entries — always posted (opening balance is always from posted data)
+      supabase.from('acct_journal_entries').select('id').eq('is_posted', true).lt('date', start),
     ])
     if (!accounts) { setLoading(false); return }
-    const ids = entries?.map(e => e.id) ?? []
+
+    const ids      = entries?.map(e => e.id) ?? []
+    const priorIds = priorEntries?.map(e => e.id) ?? []
     setEntryIds(ids)
-    let linesData: { account_id: string; debit: number; credit: number }[] = []
-    if (ids.length > 0) {
-      const { data: lines } = await supabase.from('acct_journal_lines').select('account_id, debit, credit').in('entry_id', ids)
-      linesData = lines ?? []
+
+    // Batch .in() at 500 to stay within Supabase limits
+    async function fetchLines(entryIds: string[]) {
+      const out: { account_id: string; debit: number; credit: number }[] = []
+      for (let i = 0; i < entryIds.length; i += 500) {
+        const { data } = await supabase
+          .from('acct_journal_lines').select('account_id, debit, credit')
+          .in('entry_id', entryIds.slice(i, i + 500))
+        if (data) out.push(...data)
+      }
+      return out
     }
+
+    const [linesData, priorLinesData] = await Promise.all([
+      ids.length      > 0 ? fetchLines(ids)      : Promise.resolve([]),
+      priorIds.length > 0 ? fetchLines(priorIds)  : Promise.resolve([]),
+    ])
+
+    const BS_TYPES = new Set(['asset', 'liability', 'equity'])
+
     const result: AccountRow[] = accounts.map(acc => {
-      const al  = linesData.filter(l => l.account_id === acc.id)
-      const dr  = al.reduce((s,l) => s + Number(l.debit), 0)
-      const cr  = al.reduce((s,l) => s + Number(l.credit), 0)
-      const bal = acc.normal_balance === 'debit' ? dr - cr : cr - dr
-      return { id: acc.id, code: acc.code, name: acc.name, type: acc.type, open: 0, dr, cr, close: bal }
+      const al     = linesData.filter(l => l.account_id === acc.id)
+      const dr     = al.reduce((s,l) => s + Number(l.debit),  0)
+      const cr     = al.reduce((s,l) => s + Number(l.credit), 0)
+      const movement = acc.normal_balance === 'debit' ? dr - cr : cr - dr
+
+      let open = 0
+      if (BS_TYPES.has(acc.type)) {
+        const pl   = priorLinesData.filter(l => l.account_id === acc.id)
+        const pDr  = pl.reduce((s,l) => s + Number(l.debit),  0)
+        const pCr  = pl.reduce((s,l) => s + Number(l.credit), 0)
+        open = acc.normal_balance === 'debit' ? pDr - pCr : pCr - pDr
+      }
+
+      return { id: acc.id, code: acc.code, name: acc.name, type: acc.type, open, dr, cr, close: open + movement }
     })
     setRows(result); setFiltered(result); setLoading(false)
   }, [period, postedOnly])
@@ -118,6 +148,17 @@ function LedgerEnquiry() {
           <Link href="/dashboard/export" className="pill ml-auto no-underline">Export</Link>
         </div>
 
+        {!loading && entryIds.length === 0 && (
+          <div className="mb-3 px-3 py-2 rounded text-xs text-ink-2 bg-surface border border-paper-edge">
+            No {postedOnly ? 'posted ' : ''}entries found for this period.
+            {postedOnly && (
+              <button className="ml-1 text-accent underline" onClick={() => setPostedOnly(false)}>
+                Show unposted too
+              </button>
+            )}
+          </div>
+        )}
+
         <div className="card overflow-hidden">
           <table className="w-full">
             <thead className="t-head">
@@ -138,6 +179,14 @@ function LedgerEnquiry() {
                       ))}
                     </tr>
                   ))
+                : filtered.length === 0
+                  ? (
+                    <tr>
+                      <td colSpan={6} className="t-cell text-center text-ink-2 py-8">
+                        No accounts match your filter.
+                      </td>
+                    </tr>
+                  )
                 : filtered.map(row => (
                     <tr key={row.id} className="t-row t-row-clickable" data-selected={selected?.id === row.id}
                       onClick={() => selectAccount(row)}>
