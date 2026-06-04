@@ -6,15 +6,15 @@ import { importStatement } from '@/lib/banking/import-statement'
 import type { BankTxnInput } from '@/lib/banking/parse-statement-csv'
 
 export async function POST(req: Request) {
-  const { accountNumber, accountName, closingBalance, transactions } = (await req.json()) as {
-    accountNumber?: string
-    accountName?: string
+  const { bankAccountId, statementAccountNumber, closingBalance, transactions } = (await req.json()) as {
+    bankAccountId?: string
+    statementAccountNumber?: string | null
     closingBalance?: number | null
     transactions?: BankTxnInput[]
   }
 
-  if (!accountNumber) {
-    return NextResponse.json({ error: 'Missing account number' }, { status: 400 })
+  if (!bankAccountId) {
+    return NextResponse.json({ error: 'Missing bank account' }, { status: 400 })
   }
   if (!Array.isArray(transactions) || transactions.length === 0) {
     return NextResponse.json({ error: 'No transactions to import' }, { status: 400 })
@@ -22,11 +22,14 @@ export async function POST(req: Request) {
 
   try {
     const result = await importStatement(createServerClient(), {
-      accountNumber, accountName, closingBalance, transactions,
+      bankAccountId, statementAccountNumber, closingBalance, transactions,
     })
     return NextResponse.json(result)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Import failed'
-    return NextResponse.json({ error: message }, { status: 500 })
+    const status = message === 'Bank account not found' ? 404
+      : message.startsWith('Statement is for') ? 409
+      : 500
+    return NextResponse.json({ error: message }, { status })
   }
 }

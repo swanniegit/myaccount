@@ -41,7 +41,8 @@ export default function ImportStatement({ account, onImported }: { account: Bank
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          accountNumber: parsed.accountNumber ?? account.account_number,
+          bankAccountId: account.id,
+          statementAccountNumber: parsed.accountNumber,
           closingBalance: parsed.closingBalance,
           transactions: parsed.transactions,
         }),

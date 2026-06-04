@@ -15,6 +15,8 @@ Date, Amount, Balance, Description
 
 describe('parseStatementCsv', () => {
   it('extracts account number and closing balance from the metadata block', () => {
+    // Transactions are listed newest-first, so the metadata Balance (first value)
+    // equals the most-recent/top row's running balance — the closing balance.
     const r = parseStatementCsv(parseCsv(SAMPLE))
     expect(r.accountNumber).toBe('63044191201')
     expect(r.closingBalance).toBe(39167.72)

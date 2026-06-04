@@ -61,7 +61,7 @@ Account lookups are by `code` (e.g. VAT control = `'2100'`). Postgres queries th
 
 ## Environment variables
 
-`.env.local.example` lists only the two public vars; the full runtime set (not all documented there):
+Full runtime env var set (see `.env.local.example` for the complete list):
 
 | Var | Used by |
 |-----|---------|

@@ -2,8 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { BankTxnInput } from '@/lib/banking/parse-statement-csv'
 
 export interface ImportStatementInput {
-  accountNumber: string
-  accountName?: string
+  bankAccountId: string
+  statementAccountNumber?: string | null   // from the CSV; verified against the target account
   closingBalance?: number | null
   transactions: BankTxnInput[]
 }
@@ -13,15 +13,21 @@ export interface ImportStatementResult {
   skipped: number       // duplicates already present in the imported date range
 }
 
+const PAGE = 1000
+
 const dedupKey = (date: string, amount: number, description: string) =>
   `${date}|${Number(amount).toFixed(2)}|${description.trim()}`
 
 /**
- * Import parsed bank lines into `acct_bank_transactions` for the given account
- * (found by account number, created if absent). De-duplicates against rows
- * already in the imported date range using a (date, amount, description)
- * multiset, so re-importing an overlapping statement is a no-op while genuine
- * same-day/same-amount duplicates are preserved.
+ * Import parsed bank lines into `acct_bank_transactions` for an existing
+ * account (identified by id — never created here, so reconciliation never
+ * meets an account with no GL link). The statement's own account number is
+ * verified against the target server-side.
+ *
+ * De-duplicates against rows already in the imported date range using a
+ * (date, amount, description) multiset, so re-importing an overlapping
+ * statement is a no-op while genuine same-day/same-amount duplicates are
+ * preserved. The existing-rows query is paginated to stay correct past 1000.
  *
  * These rows are unreconciled staging data — GL entries are only created later
  * via the reconcile/allocate flow, never here.
@@ -30,42 +36,40 @@ export async function importStatement(
   supabase: SupabaseClient,
   input: ImportStatementInput
 ): Promise<ImportStatementResult> {
-  const { accountNumber, accountName, closingBalance, transactions } = input
+  const { bankAccountId, statementAccountNumber, closingBalance, transactions } = input
 
-  // 1. Find (or create) the bank account for this number.
-  let bankAccountId: string
-  const { data: existing } = await supabase
+  // 1. Resolve the target account (must already exist) and verify the file matches it.
+  const { data: account, error: acctErr } = await supabase
     .from('acct_bank_accounts')
-    .select('id')
-    .eq('account_number', accountNumber)
+    .select('id, account_number')
+    .eq('id', bankAccountId)
     .maybeSingle()
-
-  if (existing) {
-    bankAccountId = existing.id
-  } else {
-    const { data: created, error: createErr } = await supabase
-      .from('acct_bank_accounts')
-      .insert({ name: accountName || `Account ${accountNumber}`, account_number: accountNumber, balance: 0, is_active: true })
-      .select('id')
-      .single()
-    if (createErr || !created) throw new Error(`Could not create bank account: ${createErr?.message ?? 'unknown error'}`)
-    bankAccountId = created.id
+  if (acctErr) throw new Error(acctErr.message)
+  if (!account) throw new Error('Bank account not found')
+  if (statementAccountNumber && account.account_number && statementAccountNumber !== account.account_number) {
+    throw new Error(`Statement is for account ${statementAccountNumber}, not ${account.account_number}`)
   }
 
-  // 2. Count-based dedup against existing rows in the imported date range.
+  // 2. Load existing rows in the imported date range (paginated) for count-based dedup.
   const dates = transactions.map(t => t.date).sort()
-  const { data: priorRows, error: priorErr } = await supabase
-    .from('acct_bank_transactions')
-    .select('date, amount, description')
-    .eq('bank_account_id', bankAccountId)
-    .gte('date', dates[0])
-    .lte('date', dates[dates.length - 1])
-  if (priorErr) throw new Error(priorErr.message)
-
+  const minDate = dates[0]
+  const maxDate = dates[dates.length - 1]
   const seen = new Map<string, number>()
-  for (const row of priorRows ?? []) {
-    const k = dedupKey(row.date, Number(row.amount), row.description ?? '')
-    seen.set(k, (seen.get(k) ?? 0) + 1)
+  for (let from = 0; ; from += PAGE) {
+    const { data: rows, error } = await supabase
+      .from('acct_bank_transactions')
+      .select('date, amount, description')
+      .eq('bank_account_id', bankAccountId)
+      .gte('date', minDate)
+      .lte('date', maxDate)
+      .order('date', { ascending: true })
+      .range(from, from + PAGE - 1)
+    if (error) throw new Error(error.message)
+    for (const row of rows ?? []) {
+      const k = dedupKey(row.date, Number(row.amount), row.description ?? '')
+      seen.set(k, (seen.get(k) ?? 0) + 1)
+    }
+    if (!rows || rows.length < PAGE) break
   }
 
   const toInsert = transactions.filter(t => {
