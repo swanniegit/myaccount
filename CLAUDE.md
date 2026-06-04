@@ -14,6 +14,9 @@ npm run build      # production build (standalone output)
 npm run lint       # next lint / eslint (NOTE: not yet configured — prompts interactively)
 npm test           # vitest run — unit tests in tests/
 npm run test:watch # vitest watch mode
+
+npx vitest run tests/ledger.test.ts   # single file
+npx vitest run -t "balances debits"   # single test by name (substring)
 ```
 
 Unit tests use **Vitest** (`tests/**/*.test.ts`), covering pure logic in `lib/` (utils, ledger balance, dashboard launcher config). `vitest.config.ts` maps the `@/` alias and injects dummy Supabase env vars so importing `lib/ledger` (which constructs a client at import time) doesn't throw. Playwright is also installed but no e2e runner is wired up.
@@ -55,6 +58,19 @@ Three distinct clients exist; mixing them up causes auth/RLS bugs:
 | `createAuthClient()` | `lib/supabase-auth.ts` | anon (SSR) | auth flows |
 
 Account lookups are by `code` (e.g. VAT control = `'2100'`). Postgres queries that can exceed 1000 rows must paginate with `.range()`, and `.in()` lookups should be batched (~500) — see `app/api/kpi/route.ts` for the pattern.
+
+## Environment variables
+
+`.env.local.example` lists only the two public vars; the full runtime set (not all documented there):
+
+| Var | Used by |
+|-----|---------|
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | browser + auth clients |
+| `SUPABASE_SERVICE_ROLE_KEY` | `createServerClient()` (API routes) + all `scripts/*.mjs` |
+| `SESSION_SECRET` | HMAC session signing (`middleware.ts`, login route) |
+| `SITE_PASSWORD` | the single shared login password; rotating it revokes all sessions |
+| `ACCOUNTING_API_KEY` | `/api/push/*` machine-to-machine auth (liveHis) — `lib/livehis-push/auth.ts` |
+| `LIVEHIS_DB_{HOST,USER,PASS,NAME}` | `scripts/import-livehis-prod.mjs` only — reads the liveHis MySQL source (`mysql2`) |
 
 ## Auth model (not Supabase Auth)
 

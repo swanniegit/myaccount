@@ -7,6 +7,7 @@ import MonthPicker, { currentMonth, type MonthValue } from '@/components/ui/Mont
 import ReconcileView from '@/components/banking/ReconcileView'
 import CashbookView from '@/components/banking/CashbookView'
 import CashbookBatchesView from '@/components/banking/CashbookBatchesView'
+import ImportStatement from '@/components/banking/ImportStatement'
 import type { BankAccountLite } from '@/components/banking/types'
 
 type View = 'reconcile' | 'cashbook' | 'batches'
@@ -52,6 +53,7 @@ function BankingInner() {
         </div>
         <div className="flex gap-2 items-center">
           <MonthPicker value={period} onChange={setPeriod} />
+          {account && <ImportStatement account={account} onImported={loadAccount} />}
           {view === 'reconcile' && <Button size="sm">Finish reconcile</Button>}
         </div>
       </div>
