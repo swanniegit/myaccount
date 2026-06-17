@@ -2,6 +2,11 @@
 /**
  * Adds missing columns to acct_company.
  * Safe to re-run — uses IF NOT EXISTS.
+ *
+ * SUPERSEDED: this DDL is now tracked as a migration
+ * (supabase/migrations/20260617000001_acct_company_columns.sql), which is the
+ * canonical source. Kept for reference only — do not change columns here without
+ * also updating the migration, or the two will drift apart again.
  */
 import { createClient } from '@supabase/supabase-js'
 
