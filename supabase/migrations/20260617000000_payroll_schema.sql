@@ -1,10 +1,16 @@
--- Payroll module schema
--- Run in Supabase SQL Editor
+-- PR0 — Drift reconciliation: payroll (pr_*) schema
 --
--- SUPERSEDED: this DDL is now tracked as a migration
--- (supabase/migrations/20260617000000_payroll_schema.sql), which is the canonical
--- source. Kept for reference only — do not edit the schema here without also
--- updating the migration, or the two will drift apart again.
+-- These 7 tables existed only in scripts/migrate-payroll.sql (run by hand in the
+-- Supabase SQL editor) and were never tracked as a migration, so a clean deploy
+-- lacked them. This migration captures them verbatim. It is the canonical source
+-- going forward; scripts/migrate-payroll.sql is retained only for reference.
+--
+-- Idempotent (CREATE TABLE IF NOT EXISTS) — a no-op against the live DB that
+-- already has these tables, and reproduces the schema on a fresh deploy.
+--
+-- The one-off "open period for May 2026" seed from the original script is
+-- intentionally omitted: it is environment data, not schema, and per-company
+-- period seeding becomes part of acct_seed_company() in a later multi-company PR.
 
 -- Employees
 CREATE TABLE IF NOT EXISTS pr_employees (
@@ -116,8 +122,3 @@ CREATE TABLE IF NOT EXISTS pr_leave_requests (
   approved_by TEXT,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
--- Seed: open period for current month (May 2026)
-INSERT INTO pr_periods (year, month, start_date, end_date, pay_date, status)
-VALUES (2026, 5, '2026-05-01', '2026-05-31', '2026-05-25', 'open')
-ON CONFLICT (year, month) DO NOTHING;
